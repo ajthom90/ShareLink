@@ -36,3 +36,6 @@ Package.resolved.bak
 
 # --- Local test infra ---
 Tests/Samba/data/
+
+# Local list of org-specific strings that must never be committed
+.proprietary-patterns

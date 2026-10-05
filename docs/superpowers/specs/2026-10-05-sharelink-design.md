@@ -118,7 +118,7 @@ and fails the connection if the server can't encrypt.
            │            links                      │ links
            ▼                                       ▼
 ┌───────────────────────────────────────────────────────────────────┐
-│ ShareLinkKit (dynamic framework, APPLICATION_EXTENSION_API_ONLY)   │
+│ ShareLinkKit (Swift package, extension-safe APIs only)             │
 │  SMBClient protocol + AMSMB2SMBClient   ServerConfig models        │
 │  ManagedConfigParser   ConfigStore (App Group defaults)            │
 │  CredentialStore (Keychain, shared access group)                   │
@@ -133,9 +133,15 @@ Targets:
 |---|---|---|
 | `ShareLink` | iOS app | `com.ajthom90.sharelink` |
 | `ShareLinkFileProvider` | File Provider extension | `com.ajthom90.sharelink.FileProvider` |
-| `ShareLinkKit` | Dynamic framework | `com.ajthom90.sharelink.kit` |
-| `ShareLinkKitTests` | Unit tests (iOS simulator) | — |
-| `ShareLinkIntegrationTests` | macOS test bundle against Docker Samba | — |
+| `ShareLinkKit` | Local Swift package (`Packages/ShareLinkKit`), linked into app + extension | — |
+| `ShareLinkKitTests` | Package unit tests (`swift test`, macOS) | — |
+| `ShareLinkIntegrationTests` | Package tests against Docker Samba (`swift test`, macOS) | — |
+
+ShareLinkKit holds all non-UI logic, including the File Provider engine and
+item types (the FileProvider framework also exists on macOS), so it is tested
+on macOS without a simulator. AMSMB2 stays a separate dynamic framework
+embedded once in the app; the extension links it from the app's `Frameworks`
+directory and must not contain its own copy (checked at archive time).
 
 Shared entitlements: App Group `group.com.ajthom90.sharelink`; keychain access
 group using the App Group identifier so no Team ID appears in source.
@@ -162,8 +168,9 @@ group using the App Group identifier so no Team ID appears in source.
   ManagedConfiguration { servers, allowUserServers, supportMessage, issues }`.
 - **`ConfigStore`** — persists normalized server list + global settings in App
   Group `UserDefaults` for the extension to read.
-- **`CredentialStore`** — Keychain `kSecClassInternetPassword` keyed by
-  server ID; `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`; shared access
+- **`CredentialStore`** — Keychain `kSecClassGenericPassword` (service
+  `com.ajthom90.sharelink`, account = server ID) holding JSON
+  `{username, password}`; `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`; shared access
   group. Passwords never written to logs, defaults, or the metadata DB.
 - **`DomainReconciler`** (app) — makes `NSFileProviderManager` domains match
   `ConfigStore`: adds missing domains, removes domains whose server is gone
@@ -368,12 +375,12 @@ when Files sends the user to the app after `.notAuthenticated`.
 
 ## 9. Testing
 
-- **Unit tests (`ShareLinkKitTests`, iOS simulator)**: `ManagedConfigParser`
+- **Unit tests (`ShareLinkKitTests`, `swift test` on macOS)**: `ManagedConfigParser`
   (single share, numbered shares, lenient types, missing required keys,
   deterministic IDs); `MetadataStore` diffing (add/update/delete/rename by
   fileID, path-prefix rename, anchor expiry); versioning; error mapping; and
   the hidden-file filter. These run against an in-memory `FakeSMBClient`.
-- **Integration tests (`ShareLinkIntegrationTests`, macOS)**: run
+- **Integration tests (`ShareLinkIntegrationTests`, `swift test` on macOS)**: run
   `AMSMB2SMBClient` against a Docker Samba container
   (`Tests/Samba/docker-compose.yml`) on port 1445 with `server signing =
   mandatory`, plus a second share with `smb encrypt = required`. They cover
