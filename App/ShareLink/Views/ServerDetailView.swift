@@ -16,21 +16,17 @@ struct ServerDetailView: View {
     @State private var openFailed = false
 
     private var status: ServerStatus { model.status(for: server.id) }
+    private var isSignedIn: Bool { status == .signedIn }
     private var isBusy: Bool { isOpeningFiles || isSigningOut || isRemoving }
 
     var body: some View {
         Form {
-            Section("Status") {
+            Section {
                 LabeledContent("Status", value: statusTitle)
                 if case .error(let message) = status {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Last error")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Text(message)
-                            .foregroundStyle(.red)
-                    }
-                    .accessibilityElement(children: .combine)
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -59,7 +55,7 @@ struct ServerDetailView: View {
                         Label("Open in Files", systemImage: "folder")
                     }
                 }
-                .disabled(isBusy)
+                .disabled(!isSignedIn || isBusy)
                 .accessibilityLabel("Open in Files")
 
                 NavigationLink {
@@ -67,6 +63,7 @@ struct ServerDetailView: View {
                 } label: {
                     Label("Browse", systemImage: "list.bullet")
                 }
+                .disabled(!isSignedIn)
 
                 if status == .signedIn {
                     Button(role: .destructive) {
@@ -103,6 +100,10 @@ struct ServerDetailView: View {
                     }
                     .disabled(isBusy)
                     .accessibilityLabel("Remove Server")
+                }
+            } footer: {
+                if !isSignedIn {
+                    Text("Sign in to open this server in Files.")
                 }
             }
         }

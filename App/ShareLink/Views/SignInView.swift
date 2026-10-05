@@ -25,7 +25,7 @@ struct SignInView: View {
             Form {
                 Section {
                     LabeledContent("Server", value: server.displayName)
-                    LabeledContent("Summary") {
+                    LabeledContent("Location") {
                         Text(server.summary)
                             .multilineTextAlignment(.trailing)
                     }
