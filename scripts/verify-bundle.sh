@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Checks a built ShareLink.app for the Info.plist, privacy manifest, and
-# framework layout Task 1 requires. Entitlements are read from source because
-# unsigned simulator builds do not embed them.
+# framework layout Task 1 requires. Source entitlements must contain the App
+# Group. Unsigned simulator builds do not embed entitlements. When
+# `codesign -d --entitlements :-` succeeds and prints a plist, the app and the
+# appex must both include group.com.ajthom90.sharelink.
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
@@ -90,3 +92,41 @@ do
   [[ -f "$entitlements" ]] || fail "missing source entitlements ${entitlements}"
   require_eq "$(basename "$entitlements")" ":com.apple.security.application-groups:0" "$entitlements" "group.com.ajthom90.sharelink"
 done
+
+# Writes a plist to dest and returns 0 when codesign prints embedded entitlements.
+# Unsigned simulator builds produce no plist; that path stays source-only.
+has_embedded_entitlements_plist() {
+  local target="$1" dest="$2" ent
+  if ! ent="$(codesign -d --entitlements :- "$target" 2>/dev/null)"; then
+    return 1
+  fi
+  if [[ "$ent" != *"<plist"* && "$ent" != bplist* ]]; then
+    return 1
+  fi
+  printf '%s' "$ent" > "$dest"
+  plutil -lint "$dest" >/dev/null 2>&1
+}
+
+require_embedded_app_group() {
+  local label="$1" file="$2" i=0 value found=0
+  while value="$(/usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups:${i}" "$file" 2>/dev/null)"; do
+    if [[ "$value" == "group.com.ajthom90.sharelink" ]]; then
+      found=1
+      break
+    fi
+    i=$((i + 1))
+  done
+  if [[ "$found" -ne 1 ]]; then
+    fail "${label} embedded entitlements do not contain group.com.ajthom90.sharelink"
+  fi
+}
+
+ent_tmp="$(mktemp -d)"
+trap 'rm -rf "$ent_tmp"' EXIT
+if has_embedded_entitlements_plist "$APP" "${ent_tmp}/app.plist"; then
+  require_embedded_app_group "app" "${ent_tmp}/app.plist"
+  if ! has_embedded_entitlements_plist "$APPEX" "${ent_tmp}/appex.plist"; then
+    fail "appex embedded entitlements plist missing"
+  fi
+  require_embedded_app_group "appex" "${ent_tmp}/appex.plist"
+fi
