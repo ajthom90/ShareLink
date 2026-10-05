@@ -4,6 +4,8 @@ ShareLink is a free, open-source SMB client for iPhone and iPad. It connects to 
 
 Organizations that manage devices with an MDM push the server, share, and path through managed app configuration. The user signs in with a password. People without an MDM can add a server themselves.
 
+> **Status: pre-release.** The File Provider integration is verified on the iOS Simulator against a Samba server (sign-in, the Files location, listing, and folder creation; see [docs/TESTING.md](docs/TESTING.md)). Opening and saving documents from Microsoft Office on a real device has not been verified yet; the on-device checklist in `docs/TESTING.md` is the acceptance test for the first TestFlight build.
+
 ## Features
 
 - One Files location per configured share, through a File Provider extension, so Office and other apps open and save documents in place.
@@ -24,7 +26,7 @@ Server settings are a flat managed app configuration dictionary. The key referen
 
 ## Using with Microsoft Office
 
-After the share is signed in, open the Files app, tap Browse, and open the ShareLink location. The first time, users may need to turn on ShareLink in Files: open the Files app, tap Browse, then ⋯ (More) → Edit, turn on ShareLink, and tap Done. With a single share, Files shows the location as "ShareLink". With several shares, each appears under its `DisplayName`. In Word, Excel, or PowerPoint, choose Open, then Browse, and open the same location. Edits, including AutoSave, are written back to the server.
+After the share is signed in, open the Files app, tap Browse, and open the ShareLink location. The first time, users may need to turn on ShareLink in Files: open the Files app, tap Browse, then ⋯ (More) → Edit, turn on ShareLink, and tap Done. With a single share, Files shows the location as "ShareLink". With several shares, each appears under its `DisplayName`. In Word, Excel, or PowerPoint, choose Open, then Browse, and open the same location. Edits, including AutoSave, are designed to be written back to the server (pending on-device verification; see Status above).
 
 ## Building from source
 
