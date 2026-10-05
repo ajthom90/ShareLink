@@ -94,4 +94,20 @@ import Foundation
         let url = await model.openInFilesURL(for: model.servers[0].id)
         #expect(url?.scheme == "shareddocuments")
     }
+
+    @Test func feedbackCountsManagedSharesOnly() async throws {
+        let (model, _, _, _, fb) = make()
+        await model.start(managedConfig: managed)
+        let user = ServerConfig(id: ServerConfig.newUserID(), source: .user, displayName: "Mine", host: "nas.example.com", share: "Home")
+        try await model.saveUserServer(user, username: "me", password: "pw")
+        #expect(model.status(for: user.id) == .signedIn)
+        let before = fb.dictionary(forKey: ManagedFeedback.key)
+        #expect(before?["ConfiguredShares"] as? Int == 1)
+        #expect(before?["SignedInShares"] as? Int == 0)
+        let managedID = try #require(model.servers.first { $0.isManaged }?.id)
+        try await model.signIn(serverID: managedID, username: "jdoe", password: "pw")
+        let after = fb.dictionary(forKey: ManagedFeedback.key)
+        #expect(after?["ConfiguredShares"] as? Int == 1)
+        #expect(after?["SignedInShares"] as? Int == 1)
+    }
 }

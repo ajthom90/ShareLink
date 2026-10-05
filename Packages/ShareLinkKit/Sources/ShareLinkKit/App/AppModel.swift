@@ -188,9 +188,11 @@ public final class AppModel {
         statuses = next
     }
 
+    /// `ConfiguredShares` and `SignedInShares` count managed shares only (spec §4).
     private func writeFeedback() {
-        let signedIn = servers.filter { status(for: $0.id) == .signedIn }.count
-        ManagedFeedback.write(configuredShares: servers.count, signedInShares: signedIn,
+        let managed = servers.filter(\.isManaged)
+        let signedIn = managed.filter { status(for: $0.id) == .signedIn }.count
+        ManagedFeedback.write(configuredShares: managed.count, signedInShares: signedIn,
                               configErrors: configIssues, appVersion: appVersion, to: feedbackDefaults)
     }
 }
