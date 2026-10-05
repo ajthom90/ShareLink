@@ -5,7 +5,7 @@
 | 1. Project scaffold, package skeleton, hygiene, CI | done | `swift test --filter ShareLinkKitTests`: 2 tests passed. Simulator `xcodebuild` (`CODE_SIGNING_ALLOWED=NO`, `-derivedDataPath build/DerivedData`) exit 0. `./scripts/verify-bundle.sh` exit 0: Info.plist keys and App Group entitlements come from `project.yml` properties, privacy manifests are in the app and appex, no nested frameworks, `AMSMB2.framework` is in the app. `check-secrets.sh` exit 0. |
 | 2. Config models and managed configuration parser | done | `swift test --filter "SMBPathTests\|ManagedConfigParserTests"`: 9 tests passed. `swift test --filter ShareLinkKitTests`: 11 tests passed. `check-secrets.sh` exit 0. |
 | 3. ConfigStore, credentials, managed feedback | done | `swift test --filter "ConfigStoreTests\|CredentialStoreTests\|ManagedFeedbackTests"`: 5 tests passed. `swift test --filter ShareLinkKitTests`: 16 tests passed. `check-secrets.sh` exit 0. |
-| 4. SMB client abstraction, error model, fake client | pending | |
+| 4. SMB client abstraction, error model, fake client | done | `swift test --filter FakeSMBClientTests`: 4 tests passed. `swift test --filter ShareLinkKitTests`: 20 tests passed. `check-secrets.sh` exit 0. |
 | 5. AMSMB2 client, error mapping, Samba integration tests | pending | |
 | 6. Versions, hidden names, item records, metadata store | pending | |
 | 7. Folder scanner | pending | |
@@ -18,3 +18,5 @@
 | 14. TestFlight pipeline | pending | |
 
 Task 1 notes: XcodeGen also writes default `CFBundleDevelopmentRegion` and `CFBundleInfoDictionaryVersion`. `Packages/ShareLinkKit/Package.resolved` is committed (AMSMB2 4.0.3, GRDB.swift 7.11.1). Info.plist and entitlements keys live in `project.yml` `properties` so `xcodegen generate` does not drop them.
+
+Task 4 notes: `RemoteEntry` has a public memberwise initializer so it can be constructed outside the module. `failNext` queues errors for the next throwing `SMBClient` call; `disconnect()` increments `disconnectCount` and leaves a pending failure in place. `seedFile` creates missing parent directories.
