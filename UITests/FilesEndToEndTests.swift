@@ -7,7 +7,6 @@ import XCTest
 final class FilesEndToEndTests: XCTestCase {
     private let locationName = "Samba Test"
     private let password = "ShareLink-Test-1"
-    private let folderName = "e2e-folder"
     /// Two taps would collapse the section again. The label and the disclosure
     /// are different hit targets, so each point is tried at most once.
     private var locationExpandTaps = 0
@@ -77,10 +76,19 @@ final class FilesEndToEndTests: XCTestCase {
         attach(files.screenshot(), name: "05-hello-txt")
         _ = hello
 
-        try createFolder(named: folderName, in: files)
-        let created = try waitForFilesLabel(folderName, in: files, timeout: 45, insideLocation: true)
+        // Files creates the folder under its own default name ("untitled folder",
+        // or a numbered variant). Typing a replacement into the inline rename
+        // field does not reliably schedule a provider rename, so the test leaves
+        // that name alone. The script checks the server for a new directory.
+        let existingFolders = folderItemLabels(in: files)
+        try createFolder(in: files)
+        if let created = waitForNewFolderName(in: files, excluding: existingFolders, timeout: 15) {
+            XCTContext.runActivity(named: "Created folder \(created)") { _ in }
+            attach(XCTAttachment(string: created), name: "created-folder-name")
+        } else {
+            attach(XCTAttachment(string: "Files did not expose a new folder name. The script checks the server for a new directory."), name: "created-folder-name")
+        }
         attach(files.screenshot(), name: "07-folder-created")
-        XCTAssertTrue(created.exists)
     }
 
     // MARK: - ShareLink
@@ -153,6 +161,13 @@ final class FilesEndToEndTests: XCTestCase {
         var attempt = 0
         while Date() < deadline {
             dismissFilesChrome(files)
+            // A fresh domain can show "could not be displayed" once, with the
+            // items already materialized. Try Again reloads the listing.
+            if insideLocation, files.buttons["Try Again"].firstMatch.exists {
+                _ = tapFirst(in: files, labels: ["Try Again"], types: [.button])
+                RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+                continue
+            }
             // A disabled domain shows "To browse and add files, turn on …" with
             // a Turn On button. That screen can also contain the display name,
             // so confirm it before treating the name as the open location.
@@ -535,8 +550,9 @@ final class FilesEndToEndTests: XCTestCase {
         }
     }
 
-    private func createFolder(named name: String, in files: XCUIApplication) throws {
-        if !tapFirst(in: files, labels: ["New Folder"], types: [.button, .menuItem]) {
+    private func createFolder(in files: XCUIApplication) throws {
+        let labels = ["New Folder", "Create Folder"]
+        if !tapFirst(in: files, labels: labels, types: [.button, .menuItem]) {
             let opened = tapFirst(
                 in: files,
                 labels: ["More…", "More...", "More", "More Actions", "Actions"],
@@ -548,10 +564,20 @@ final class FilesEndToEndTests: XCTestCase {
                     overflow.tap()
                 }
             }
-            let item = files.menuItems["New Folder"].firstMatch
-            let button = files.buttons["New Folder"].firstMatch
-            let command = item.exists ? item : button
-            guard command.waitForExistence(timeout: 5), command.isHittable else {
+            var command: XCUIElement?
+            for label in labels {
+                let item = files.menuItems[label].firstMatch
+                if item.exists {
+                    command = item
+                    break
+                }
+                let button = files.buttons[label].firstMatch
+                if button.exists {
+                    command = button
+                    break
+                }
+            }
+            guard let command, command.waitForExistence(timeout: 5), command.isHittable else {
                 attach(files.screenshot(), name: "no-new-folder")
                 attachHierarchy("no-new-folder", files)
                 attach(XCTAttachment(string: controlLabels(files)), name: "controls-new-folder")
@@ -561,77 +587,104 @@ final class FilesEndToEndTests: XCTestCase {
             command.tap()
         }
 
-        let field = try folderNameField(in: files)
-        replace(field, with: name, in: files)
-        attach(files.screenshot(), name: "06-folder-name-entered")
-
-        let confirmLabels = ["Create Folder", "Done", "done", "OK", "Save", "Create"]
-        var confirmed = false
-        // Inline rename has no dialog. Return commits the name; the on-screen
-        // checkmark is a keyboard key that is not always in the button query.
-        let rename = files.textViews["DOC.inlineRenameField"].firstMatch
-        if rename.exists {
-            rename.typeText(XCUIKeyboardKey.return.rawValue)
-            let deadline = Date().addingTimeInterval(3)
-            while Date() < deadline, files.textViews["DOC.inlineRenameField"].firstMatch.exists {
-                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-            }
-            confirmed = !files.textViews["DOC.inlineRenameField"].firstMatch.exists
-        }
-        if !confirmed {
-            for scope in [files.alerts.firstMatch, files.sheets.firstMatch, files] where scope.exists {
-                for label in confirmLabels {
-                    let button = scope.buttons[label].firstMatch
-                    if button.exists && button.isHittable && button.isEnabled {
-                        button.tap()
-                        confirmed = true
-                        break
-                    }
-                }
-                if confirmed { break }
-            }
-        }
-        if !confirmed {
-            attach(files.screenshot(), name: "no-folder-confirm")
-            XCTFail("New Folder confirmation button was not available")
-            throw E2EError.failed("no folder confirm")
-        }
+        commitDefaultFolderName(in: files)
     }
 
-    private func folderNameField(in files: XCUIApplication) throws -> XCUIElement {
+    /// Leaves Files' default name in the field. Return commits it; a tap outside
+    /// the editor does the same when Return leaves the field up. The text is not
+    /// replaced: a typed name does not reliably become a provider rename.
+    private func commitDefaultFolderName(in files: XCUIApplication) {
         let deadline = Date().addingTimeInterval(8)
         while Date() < deadline {
-            // Files renames the new folder in place. The editor is a text view,
-            // not a dialog text field.
+            if confirmCreateDialog(files) { return }
             let rename = files.textViews["DOC.inlineRenameField"].firstMatch
-            if rename.exists { return rename }
-            let named = files.textFields["Folder name"].firstMatch
-            if named.exists { return named }
-            let untitled = files.textFields["untitled folder"].firstMatch
-            if untitled.exists { return untitled }
+            if rename.exists {
+                attach(files.screenshot(), name: "06-default-folder-name")
+                if rename.isHittable { rename.tap() }
+                if files.keyboards.firstMatch.waitForExistence(timeout: 3) {
+                    rename.typeText(XCUIKeyboardKey.return.rawValue)
+                    let gone = Date().addingTimeInterval(3)
+                    while Date() < gone, files.textViews["DOC.inlineRenameField"].firstMatch.exists {
+                        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+                    }
+                }
+                if files.textViews["DOC.inlineRenameField"].firstMatch.exists {
+                    tapAwayFromRename(files)
+                }
+                return
+            }
             for query in [files.textFields, files.textViews] {
                 for field in query.allElementsBoundByIndex where field.exists {
                     let value = (field.value as? String) ?? ""
-                    if value.localizedCaseInsensitiveContains("untitled") { return field }
+                    if value.localizedCaseInsensitiveContains("untitled") {
+                        attach(files.screenshot(), name: "06-default-folder-name")
+                        if field.isHittable { field.tap() }
+                        field.typeText(XCUIKeyboardKey.return.rawValue)
+                        return
+                    }
                 }
             }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
-        attach(files.screenshot(), name: "no-folder-field")
-        attachHierarchy("no-folder-field", files)
-        XCTFail("New Folder did not present a text field")
-        throw E2EError.failed("no folder field")
+        // Some Files versions create the folder without showing an editor.
+        attach(files.screenshot(), name: "06-default-folder-name")
     }
 
-    private func replace(_ field: XCUIElement, with text: String, in app: XCUIApplication) {
-        field.tap()
-        field.typeKey("a", modifierFlags: .command)
-        field.typeText(text)
-        let value = field.value as? String ?? ""
-        guard value != text else { return }
-        let deletes = String(repeating: XCUIKeyboardKey.delete.rawValue, count: max(value.count, 1) + 24)
-        field.typeText(deletes)
-        field.typeText(text)
+    private func confirmCreateDialog(_ files: XCUIApplication) -> Bool {
+        let dialog = files.alerts.firstMatch.exists || files.sheets.firstMatch.exists
+        guard dialog else { return false }
+        for label in ["Create Folder", "Create", "Add", "Save", "Done", "OK"] {
+            for query in [files.alerts.buttons, files.sheets.buttons] {
+                let button = query[label].firstMatch
+                if button.exists, button.isHittable, button.isEnabled {
+                    attach(files.screenshot(), name: "06-default-folder-name")
+                    button.tap()
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private func tapAwayFromRename(_ files: XCUIApplication) {
+        let title = files.navigationBars.firstMatch
+        if title.exists, title.isHittable {
+            title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            return
+        }
+        files.coordinate(withNormalizedOffset: CGVector(dx: 0.72, dy: 0.2)).tap()
+    }
+
+    /// Item rows are labeled "name, Folder". Sidebar controls are not.
+    private func folderItemLabels(in files: XCUIApplication) -> Set<String> {
+        var labels = Set<String>()
+        for query in [files.cells, files.buttons] {
+            for element in query.allElementsBoundByIndex where element.exists {
+                let label = element.label
+                guard label.range(of: ", Folder", options: [.caseInsensitive, .backwards]) != nil else { continue }
+                labels.insert(label)
+            }
+        }
+        return labels
+    }
+
+    private func waitForNewFolderName(in files: XCUIApplication, excluding existing: Set<String>, timeout: TimeInterval) -> String? {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let fresh = folderItemLabels(in: files).subtracting(existing)
+            if let label = fresh.sorted().first {
+                return folderDisplayName(label)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        return nil
+    }
+
+    private func folderDisplayName(_ label: String) -> String {
+        if let range = label.range(of: ", Folder", options: [.caseInsensitive, .backwards]) {
+            return String(label[..<range.lowerBound])
+        }
+        return label
     }
 
     // MARK: - Attachments

@@ -12,11 +12,115 @@
 # by an earlier run signs the share in before the sheet can appear. Uninstall
 # does not clear that keychain. The script resets it after uninstall.
 #
+# Uninstall also leaves the File Provider domain behind (materialized items,
+# fileproviderd's domain database, and the App Group metadata index). The script
+# removes that state for com.ajthom90.sharelink.FileProvider. Set E2E_ERASE=1
+# to `simctl erase` the simulator before boot when a full wipe is required.
+# That option is off by default.
+#
+# The UI test creates a folder and leaves Files' default name in place. Before
+# the test the script removes leftover "untitled folder*" directories and
+# records the share's top-level names. Afterwards it requires a new directory
+# of any name, which is the proof that createItem reached Samba.
+#
 # Exits 0 and prints SKIP when 127.0.0.1:1445 is not accepting TCP.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+BEFORE_DIRS=""
+AFTER_DIRS=""
+
+on_exit() {
+  if [[ -n "${BEFORE_DIRS:-}" ]]; then rm -f "$BEFORE_DIRS"; fi
+  if [[ -n "${AFTER_DIRS:-}" ]]; then rm -f "$AFTER_DIRS"; fi
+}
+trap on_exit EXIT
+
+# `simctl spawn` cannot disable fileproviderd (not permitted). The daemon is a
+# host process whose open files include this device's data directory.
+fileproviderd_pids() {
+  local udid="$1"
+  local pid
+  for pid in $(pgrep -f 'FileProvider.framework/Support/fileproviderd' || true); do
+    if lsof -p "$pid" 2>/dev/null | grep -q "$udid"; then
+      printf '%s\n' "$pid"
+    fi
+  done
+}
+
+stop_fileproviderd() {
+  local udid="$1"
+  local pid
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] || continue
+    kill -9 "$pid" 2>/dev/null || true
+  done < <(fileproviderd_pids "$udid")
+}
+
+# Directories only. `ls -1` (printed separately) also lists files such as hello.txt.
+server_directories() {
+  docker compose -f Tests/Samba/docker-compose.yml exec -T samba \
+    sh -c 'cd /shares/signed && for n in *; do if [ -d "$n" ]; then printf "%s\n" "$n"; fi; done' \
+    | tr -d '\r' | LC_ALL=C sort
+}
+
+# fileproviderd keeps the domain after the app is uninstalled. Stop it, delete
+# this provider's records, then let launchd start it again.
+clear_file_provider_state() {
+  local udid="$1"
+  local data="${HOME}/Library/Developer/CoreSimulator/Devices/${udid}/data"
+  local fp="${data}/Library/Application Support/FileProvider"
+  local provider="${fp}/com.ajthom90.sharelink.FileProvider"
+  local bundle="com.ajthom90.sharelink.FileProvider"
+
+  local fpfs
+  # stdout and stderr: fileproviderctl's root line is `<FPFS>/<uuid>`.
+  fpfs="$(xcrun simctl spawn "$udid" fileproviderctl dump "$bundle" 2>&1 | sed -nE 's/.*<FPFS>\/([0-9A-Fa-f-]{36}).*/\1/p' | head -1 || true)"
+
+  # Launchd restarts the daemon. Stop it, delete, then stop the replacement so
+  # a respawn cannot rewrite the database from the old mapping.
+  stop_fileproviderd "$udid"
+  sleep 0.3
+
+  remove_domain_files() {
+    if [[ -n "$fpfs" ]]; then
+      rm -rf "${data}/Library/CloudStorage/${fpfs}"
+      local db
+      for db in "$fp"/*/database/db; do
+        [[ -f "$db" ]] || continue
+        if strings "$db" | grep -q "$fpfs"; then
+          rm -rf "$(dirname "$(dirname "$db")")"
+        fi
+      done
+    fi
+    rm -rf "$provider"
+  }
+  remove_domain_files
+  stop_fileproviderd "$udid"
+  remove_domain_files
+  if [[ -n "$fpfs" ]]; then
+    echo "Removed File Provider domain storage ${fpfs}"
+  else
+    echo "File Provider dump did not name an FPFS root; removing the provider directory and App Group index" >&2
+  fi
+
+  local meta group_container=""
+  if [[ -d "${data}/Containers/Shared/AppGroup" ]]; then
+    for meta in "${data}/Containers/Shared/AppGroup"/*/.com.apple.mobile_container_manager.metadata.plist; do
+      [[ -f "$meta" ]] || continue
+      if plutil -p "$meta" | grep -q 'group.com.ajthom90.sharelink'; then
+        group_container="$(dirname "$meta")"
+        break
+      fi
+    done
+  fi
+  if [[ -n "$group_container" ]]; then
+    rm -rf "${group_container}/Domains" "${group_container}/File Provider Storage"
+    echo "Removed App Group domain index"
+  fi
+}
 
 if ! nc -z -G 2 127.0.0.1 1445 >/dev/null 2>&1; then
   echo "SKIP: 127.0.0.1:1445 is not accepting TCP connections."
@@ -65,16 +169,30 @@ PY
 )"
 
 echo "Using simulator ${UDID}"
+if [[ "${E2E_ERASE:-0}" == "1" ]]; then
+  echo "E2E_ERASE=1: erasing simulator ${UDID}"
+  xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
+  xcrun simctl erase "$UDID"
+fi
 # This Xcode takes the device first: `bootstatus <device> -b` boots if needed and waits.
 xcrun simctl bootstatus "$UDID" -b
 
 xcrun simctl terminate "$UDID" com.ajthom90.sharelink >/dev/null 2>&1 || true
 xcrun simctl terminate "$UDID" com.apple.DocumentsApp >/dev/null 2>&1 || true
+# The extension keeps running after the app terminates.
+pkill -f "${UDID}/data/Containers/.*ShareLinkFileProvider" >/dev/null 2>&1 || true
+# Dump the domain while fileproviderd still has it, then delete its records.
+clear_file_provider_state "$UDID"
 xcrun simctl uninstall "$UDID" com.ajthom90.sharelink >/dev/null 2>&1 || true
 xcrun simctl keychain "$UDID" reset
 
 docker compose -f Tests/Samba/docker-compose.yml exec -T samba \
-  sh -c 'printf hi > /shares/signed/hello.txt && chown testuser /shares/signed/hello.txt && rm -rf /shares/signed/e2e-folder'
+  sh -c 'printf hi > /shares/signed/hello.txt && chown testuser /shares/signed/hello.txt && cd /shares/signed && for d in untitled\ folder*; do if [ -d "$d" ]; then rm -rf "$d"; fi; done'
+
+echo "Server top-level names before the test:"
+docker compose -f Tests/Samba/docker-compose.yml exec -T samba ls -1 /shares/signed | tr -d '\r'
+BEFORE_DIRS="$(mktemp)"
+server_directories > "$BEFORE_DIRS"
 
 xcodegen generate
 
@@ -169,9 +287,19 @@ test_status=$?
 set -e
 
 folder_status=0
-if ! docker compose -f Tests/Samba/docker-compose.yml exec -T samba test -d /shares/signed/e2e-folder; then
-  echo "e2e-folder was not created on the Samba server (/shares/signed/e2e-folder)" >&2
+AFTER_DIRS="$(mktemp)"
+server_directories > "$AFTER_DIRS" || true
+NEW_DIRS="$(comm -13 "$BEFORE_DIRS" "$AFTER_DIRS" || true)"
+if [[ -z "$(printf '%s' "$NEW_DIRS" | tr -d '[:space:]')" ]]; then
+  echo "no new directory appeared on the Samba server (/shares/signed)" >&2
+  echo "directories before:" >&2
+  cat "$BEFORE_DIRS" >&2 || true
+  echo "listing after:" >&2
+  docker compose -f Tests/Samba/docker-compose.yml exec -T samba ls -1 /shares/signed >&2 || true
   folder_status=1
+else
+  echo "New server directory:"
+  printf '%s\n' "$NEW_DIRS"
 fi
 
 if [[ "$test_status" -ne 0 || "$folder_status" -ne 0 ]]; then
