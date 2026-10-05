@@ -1,0 +1,38 @@
+# --- Local / proprietary configuration (NEVER commit) ---
+# Developer team ID, signing overrides
+Config/Local.xcconfig
+# Real test server details
+TestServer.local.json
+*.local.json
+# App Store Connect API keys and upload config
+*.p8
+*.p12
+*.mobileprovision
+ExportOptions.local.plist
+.env
+.env.*
+!.env.example
+
+# --- Xcode ---
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcarchive
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# XcodeGen generates the project; it is not committed
+ShareLink.xcodeproj/
+
+# --- SwiftPM ---
+.build/
+.swiftpm/
+Package.resolved.bak
+
+# --- macOS ---
+.DS_Store
+
+# --- Local test infra ---
+Tests/Samba/data/
