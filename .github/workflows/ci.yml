@@ -1,8 +1,6 @@
 name: CI
 on:
-  # ci-fix is included while the Xcode 26.6 pin is verified. The final
-  # workflow runs on push to main and on pull_request.
-  push: { branches: [main, ci-fix] }
+  push: { branches: [main] }
   pull_request:
 jobs:
   test:
