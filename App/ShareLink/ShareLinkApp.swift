@@ -44,8 +44,14 @@ struct ShareLinkApp: App {
 
     private static func launchManagedConfig() -> [String: Any] {
         #if DEBUG
+        // The observer reapplies this UserDefaults key after start. The demo dictionary
+        // has to live there too, or that reapply replaces the example share with nothing.
         if demoManagedConfigEnabled {
+            UserDefaults.standard.set(demoManagedConfig, forKey: ManagedConfigParser.managedConfigKey)
             return demoManagedConfig
+        }
+        if isDemoManagedDictionary(UserDefaults.standard.dictionary(forKey: ManagedConfigParser.managedConfigKey)) {
+            UserDefaults.standard.removeObject(forKey: ManagedConfigParser.managedConfigKey)
         }
         #endif
         return UserDefaults.standard.dictionary(forKey: ManagedConfigParser.managedConfigKey) ?? [:]
@@ -58,6 +64,12 @@ struct ShareLinkApp: App {
         guard let index = arguments.firstIndex(of: "-SLDemoManagedConfig") else { return false }
         let valueIndex = arguments.index(after: index)
         return arguments.indices.contains(valueIndex) && arguments[valueIndex] == "YES"
+    }
+
+    private static func isDemoManagedDictionary(_ dict: [String: Any]?) -> Bool {
+        dict?["Host"] as? String == "files.example.com"
+            && dict?["Share"] as? String == "Shared"
+            && dict?["Username"] as? String == "jdoe"
     }
 
     private static var demoManagedConfig: [String: Any] {

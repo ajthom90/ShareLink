@@ -5,10 +5,13 @@ struct ServerRow: View {
     let server: ServerConfig
     let status: ServerStatus
 
+    /// Symbol slots scale with Dynamic Type but stay in the row so the name can wrap.
+    @ScaledMetric(relativeTo: .body) private var iconSide = 22
+    @ScaledMetric(relativeTo: .caption) private var statusSide = 10
+
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Image(systemName: "server.rack")
-                .font(.body)
+        HStack(alignment: .top, spacing: 12) {
+            symbol("server.rack", side: iconSide)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
@@ -22,22 +25,29 @@ struct ServerRow: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .layoutPriority(1)
+            // idealWidth keeps the title from collapsing to a few characters at accessibility sizes.
+            .frame(minWidth: 0, idealWidth: 4000, maxWidth: .infinity, alignment: .leading)
 
             if server.isManaged {
-                Image(systemName: "lock.fill")
-                    .font(.body)
+                symbol("lock.fill", side: iconSide)
                     .foregroundStyle(.secondary)
                     .accessibilityLabel("Managed")
             }
 
-            Image(systemName: "circle.fill")
-                .font(.caption)
+            symbol("circle.fill", side: statusSide)
                 .foregroundStyle(statusColor)
                 .accessibilityLabel(statusLabel)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .containerRelativeFrame(.horizontal, alignment: .leading)
         .accessibilityElement(children: .combine)
+    }
+
+    private func symbol(_ name: String, side: CGFloat) -> some View {
+        Image(systemName: name)
+            .resizable()
+            .scaledToFit()
+            .frame(width: side, height: side)
     }
 
     private var statusLabel: String {

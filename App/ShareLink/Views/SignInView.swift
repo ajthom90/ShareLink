@@ -92,18 +92,18 @@ struct SignInView: View {
         }
         .modifier(SignInSheetDetents(horizontalSizeClass: horizontalSizeClass, detent: $detent))
         .interactiveDismissDisabled(isWorking)
-        .task { prepareFocus() }
+        .task {
+            if username.isEmpty {
+                username = model.savedUsername(for: server.id) ?? server.username
+            }
+            // The sheet needs a moment before the password field can take focus.
+            try? await Task.sleep(for: .milliseconds(400))
+            focusedField = username.isEmpty ? .username : .password
+        }
     }
 
     private var canSubmit: Bool {
         !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !password.isEmpty
-    }
-
-    private func prepareFocus() {
-        if username.isEmpty {
-            username = model.savedUsername(for: server.id) ?? server.username
-        }
-        focusedField = username.isEmpty ? .username : .password
     }
 
     private func message(for error: SMBError) -> String {
