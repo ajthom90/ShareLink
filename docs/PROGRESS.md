@@ -14,7 +14,7 @@
 | 10. Domain reconciliation and the app model | pending | |
 | 11. SwiftUI app — servers, sign-in, server forms, detail | pending | |
 | 12. Browser, Quick Look, settings, diagnostics, acknowledgements | pending | |
-| 13. Documentation, MDM artifacts, licensing | pending | |
+| 13. Documentation, MDM artifacts, licensing | done | Built in parallel worktree (branch task-13), rebased onto main. MDMArtifactsTests 2 passed; plutil/xmllint OK; third-party source tarball contains libsmb2/lib/libsmb2.c. Licence files for Task 12 pulled forward. Reviewed by Claude. |
 | 14. TestFlight pipeline | pending | |
 
 Task 1 notes: XcodeGen also writes default `CFBundleDevelopmentRegion` and `CFBundleInfoDictionaryVersion`. `Packages/ShareLinkKit/Package.resolved` is committed (AMSMB2 4.0.3, GRDB.swift 7.11.1). Info.plist and entitlements keys live in `project.yml` `properties` so `xcodegen generate` does not drop them.
