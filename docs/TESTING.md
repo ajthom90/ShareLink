@@ -42,6 +42,24 @@ SHARELINK_TEST_SERVER_JSON=$PWD/TestServer.local.json swift test --package-path 
 
 The suite is skipped when the variable is unset or the file is not readable.
 
+## Simulator end-to-end (File Provider)
+
+`scripts/e2e-simulator.sh` is the test that actually launches the File Provider extension. Package tests run the provider engine in-process. This script boots the newest available iPad Pro (or iPad Air) simulator, builds ShareLink with signing allowed, and runs `ShareLinkUITests` against the Docker Samba container. When nothing accepts TCP on `127.0.0.1:1445` it prints `SKIP` and exits 0.
+
+```bash
+docker compose -f Tests/Samba/docker-compose.yml up -d --build
+./scripts/e2e-simulator.sh
+```
+
+What a passing run proves:
+
+- The signed simulator build embeds the App Group `group.com.ajthom90.sharelink` for both the app and the extension. Simulator binaries are ad-hoc signed and `codesign -d --entitlements` prints an empty dictionary, so the script reads `*.app-Simulated.xcent` and `*.appex-Simulated.xcent` under `build/DerivedData-e2e/Build/Intermediates.noindex/` (or the `__TEXT,__entitlements` section when those files are absent).
+- Managed configuration for the `signed` share reaches the app. The script installs ShareLink and writes `com.apple.configuration.managed` with `simctl spawn defaults write`. `xcodebuild test` can reinstall the app and drop that defaults domain, so the UI test also launches with `-SLE2EManagedConfig`. In Debug builds, `ShareLinkApp.launchManagedConfig()` turns that argument into the same dictionary: host `127.0.0.1`, port `1445`, share `signed`, user `testuser`, display name `Samba Test`.
+- Sign-in stores the password in the Keychain shared with the extension. iOS registers a new domain with `userEnabled == false`, so the test opens the Files sidebar, expands Locations, and flips the provider switch off and on (an already-on switch does not enable the domain). With one domain, Files labels that location with the app name "ShareLink" rather than the domain display name "Samba Test"; the display name is what the system stores, and Files applies it in the sidebar only when a second domain exists. The test accepts either label, then requires `hello.txt` in the location. Files' accessibility label writes that name as `hello, txt`. The extension — loading `AMSMB2.framework` from the app's `Frameworks` folder — is what serves the file.
+- Creating `e2e-folder` in Files calls through `createItem` to Samba. Files presents New Folder as an inline rename; the test commits that name with Return. After XCTest exits, the script checks that `/shares/signed/e2e-folder` exists in the container.
+
+Office save-back still needs a device. Word, Excel, and PowerPoint opening a document from Files and writing it back are covered by the on-device checklist in [Manual Office acceptance](#manual-office-acceptance), not by this simulator test.
+
 ## Manual Office acceptance
 
 On a device:

@@ -54,6 +54,7 @@ struct SignInView: View {
                         .focused($focusedField, equals: .password)
                         .submitLabel(.go)
                         .onSubmit { Task { await submit() } }
+                        .accessibilityIdentifier("signin.password")
                 }
 
                 if let error {
@@ -80,6 +81,7 @@ struct SignInView: View {
                     }
                     .disabled(isWorking || !canSubmit)
                     .accessibilityLabel("Sign In")
+                    .accessibilityIdentifier("signin.submit")
                 }
             }
             .navigationTitle("Sign In")

@@ -41,6 +41,8 @@ struct ServerRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .containerRelativeFrame(.horizontal, alignment: .leading)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("server.status")
+        .accessibilityValue(statusLabel)
     }
 
     private func symbol(_ name: String, side: CGFloat) -> some View {

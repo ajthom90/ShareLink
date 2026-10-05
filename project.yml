@@ -98,11 +98,32 @@ targets:
         script: |
           rm -rf "${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}"
         basedOnDependencyAnalysis: false
+  ShareLinkUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.ajthom90.sharelink.UITests
+        TEST_TARGET_NAME: ShareLink
+        # UI tests run in XCTRunner. The ui-testing preset points BUNDLE_LOADER at
+        # TEST_HOST, which is the unit-test host and is empty here.
+        BUNDLE_LOADER: ""
+        TEST_HOST: ""
+    dependencies:
+      - target: ShareLink
 schemes:
   ShareLink:
     build:
       targets:
         ShareLink: all
         ShareLinkFileProvider: all
+        ShareLinkUITests: [test]
+    test:
+      targets:
+        - name: ShareLinkUITests
+          parallelizable: false
     archive:
       config: Release

@@ -44,8 +44,15 @@ struct ShareLinkApp: App {
 
     private static func launchManagedConfig() -> [String: Any] {
         #if DEBUG
-        // The observer reapplies this UserDefaults key after start. The demo dictionary
-        // has to live there too, or that reapply replaces the example share with nothing.
+        // The observer reapplies this UserDefaults key after start. A DEBUG dictionary
+        // has to live there too, or that reapply replaces the share with nothing.
+        // `-SLE2EManagedConfig` is how the simulator UI test supplies managed config:
+        // `xcodebuild test` can reinstall the app and wipe a defaults domain seeded
+        // with `simctl spawn defaults write`.
+        if e2eManagedConfigEnabled {
+            UserDefaults.standard.set(e2eManagedConfig, forKey: ManagedConfigParser.managedConfigKey)
+            return e2eManagedConfig
+        }
         if demoManagedConfigEnabled {
             UserDefaults.standard.set(demoManagedConfig, forKey: ManagedConfigParser.managedConfigKey)
             return demoManagedConfig
@@ -58,6 +65,21 @@ struct ShareLinkApp: App {
     }
 
     #if DEBUG
+    /// Simulator end-to-end: `-SLE2EManagedConfig` installs the Docker Samba share.
+    private static var e2eManagedConfigEnabled: Bool {
+        ProcessInfo.processInfo.arguments.contains("-SLE2EManagedConfig")
+    }
+
+    private static var e2eManagedConfig: [String: Any] {
+        [
+            "Host": "127.0.0.1",
+            "Port": 1445,
+            "Share": "signed",
+            "Username": "testuser",
+            "DisplayName": "Samba Test",
+        ]
+    }
+
     /// Simulator-only: `-SLDemoManagedConfig YES` shows a managed `example.com` share.
     private static var demoManagedConfigEnabled: Bool {
         let arguments = ProcessInfo.processInfo.arguments
