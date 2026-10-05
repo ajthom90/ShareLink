@@ -28,6 +28,8 @@ After the share is signed in, open the Files app, tap Browse, and open the Share
 
 ## Building from source
 
+Xcode 26.6 or later.
+
 1. `brew install xcodegen`
 2. `cp Config/Local.xcconfig.example Config/Local.xcconfig` and set `DEVELOPMENT_TEAM` to your Apple Developer Team ID. `Config/Local.xcconfig` is git-ignored.
 3. `xcodegen generate`

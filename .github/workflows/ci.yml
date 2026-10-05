@@ -1,14 +1,23 @@
 name: CI
 on:
-  push: { branches: [main] }
+  # ci-fix is included while the Xcode 26.6 pin is verified. The final
+  # workflow runs on push to main and on pull_request.
+  push: { branches: [main, ci-fix] }
   pull_request:
 jobs:
   test:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - name: Secret scan
         run: ./scripts/check-secrets.sh
+      - name: Select Xcode 26.6
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          echo "DEVELOPER_DIR=/Applications/Xcode_26.6.app/Contents/Developer" >> "$GITHUB_ENV"
+          export DEVELOPER_DIR=/Applications/Xcode_26.6.app/Contents/Developer
+          xcodebuild -version
+          swift --version
       - name: Package unit tests
         working-directory: Packages/ShareLinkKit
         run: swift test --filter ShareLinkKitTests
