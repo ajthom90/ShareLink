@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Host</key>
+	<string>files.example.com</string>
+	<key>Share</key>
+	<string>Departments</string>
+	<key>Path</key>
+	<string>Finance</string>
+	<key>DisplayName</key>
+	<string>Finance</string>
+	<key>Domain</key>
+	<string>EXAMPLE</string>
+	<key>Username</key>
+	<string>jdoe</string>
+	<key>Share2.Host</key>
+	<string>archive.example.com</string>
+	<key>Share2.Share</key>
+	<string>Archive</string>
+	<key>Share2.RequireEncryption</key>
+	<true/>
+	<key>AllowUserServers</key>
+	<false/>
+	<key>SupportMessage</key>
+	<string>Use the password for your network account.</string>
+</dict>
+</plist>

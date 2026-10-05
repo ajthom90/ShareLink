@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<managedAppConfiguration>
+    <version>1</version>
+    <bundleId>com.ajthom90.sharelink</bundleId>
+    <dict>
+        <string keyName="Host"/>
+        <string keyName="Share"/>
+        <string keyName="Path">
+            <defaultValue><value></value></defaultValue>
+        </string>
+        <string keyName="DisplayName">
+            <defaultValue><value></value></defaultValue>
+        </string>
+        <integer keyName="Port">
+            <defaultValue><value>445</value></defaultValue>
+            <constraint min="1" max="65535"/>
+        </integer>
+        <string keyName="Domain">
+            <defaultValue><value></value></defaultValue>
+        </string>
+        <string keyName="Username">
+            <defaultValue><value></value></defaultValue>
+        </string>
+        <boolean keyName="UsernameLocked">
+            <defaultValue><value>false</value></defaultValue>
+        </boolean>
+        <boolean keyName="RequireEncryption">
+            <defaultValue><value>false</value></defaultValue>
+        </boolean>
+        <string keyName="Share2.Host"/>
+        <string keyName="Share2.Share"/>
+        <string keyName="Share2.Path">
+            <defaultValue><value></value></defaultValue>
+        </string>
+        <string keyName="Share2.DisplayName">
+            <defaultValue><value></value></defaultValue>
+        </string>
+        <integer keyName="Share2.Port">
+            <defaultValue><value>445</value></defaultValue>
+            <constraint min="1" max="65535"/>
+        </integer>
+        <string keyName="Share2.Domain">
+            <defaultValue><value></value></defaultValue>
+        </string>
+        <string keyName="Share2.Username">
+            <defaultValue><value></value></defaultValue>
+        </string>
+        <boolean keyName="Share2.UsernameLocked">
+            <defaultValue><value>false</value></defaultValue>
+        </boolean>
+        <boolean keyName="Share2.RequireEncryption">
+            <defaultValue><value>false</value></defaultValue>
+        </boolean>
+        <boolean keyName="AllowUserServers">
+            <defaultValue><value>true</value></defaultValue>
+        </boolean>
+        <string keyName="SupportMessage">
+            <defaultValue><value></value></defaultValue>
+        </string>
+    </dict>
+    <presentation defaultLocale="en-US">
+        <fieldGroup>
+            <name><language value="en-US">Share 1</language></name>
+            <field keyName="Host" type="input">
+                <label><language value="en-US">Host</language></label>
+                <description><language value="en-US">DNS name or IP address of the SMB server. Example: files.example.com.</language></description>
+            </field>
+            <field keyName="Share" type="input">
+                <label><language value="en-US">Share</language></label>
+                <description><language value="en-US">Name of the SMB share. Example: Departments.</language></description>
+            </field>
+            <field keyName="Path" type="input">
+                <label><language value="en-US">Path</language></label>
+                <description><language value="en-US">Subfolder within the share used as the root. Leave empty to use the whole share. Backslashes and extra slashes are accepted.</language></description>
+            </field>
+            <field keyName="DisplayName" type="input">
+                <label><language value="en-US">Display name</language></label>
+                <description><language value="en-US">Name shown in ShareLink and the Files sidebar. Leave empty to use the share name on the host.</language></description>
+            </field>
+            <field keyName="Port" type="input">
+                <label><language value="en-US">Port</language></label>
+                <description><language value="en-US">TCP port. The default is 445.</language></description>
+            </field>
+            <field keyName="Domain" type="input">
+                <label><language value="en-US">Domain</language></label>
+                <description><language value="en-US">Active Directory domain, in NetBIOS or DNS form. Example: EXAMPLE. Leave empty when the server has no domain.</language></description>
+            </field>
+            <field keyName="Username" type="input">
+                <label><language value="en-US">Username</language></label>
+                <description><language value="en-US">Pre-fills sign-in. In Miradore, use the user-name variable and copy the exact token from Miradore's variable list in the console.</language></description>
+            </field>
+            <field keyName="UsernameLocked" type="checkbox">
+                <label><language value="en-US">Lock username</language></label>
+                <description><language value="en-US">When true, the username field is read-only. The default is false.</language></description>
+            </field>
+            <field keyName="RequireEncryption" type="checkbox">
+                <label><language value="en-US">Require encryption</language></label>
+                <description><language value="en-US">When true, the connection requires SMB3 encryption and fails if the server cannot encrypt. The default is false.</language></description>
+            </field>
+        </fieldGroup>
+        <fieldGroup>
+            <name><language value="en-US">Share 2</language></name>
+            <field keyName="Share2.Host" type="input">
+                <label><language value="en-US">Host</language></label>
+                <description><language value="en-US">DNS name or IP address of the SMB server. Example: archive.example.com.</language></description>
+            </field>
+            <field keyName="Share2.Share" type="input">
+                <label><language value="en-US">Share</language></label>
+                <description><language value="en-US">Name of the SMB share. Example: Archive.</language></description>
+            </field>
+            <field keyName="Share2.Path" type="input">
+                <label><language value="en-US">Path</language></label>
+                <description><language value="en-US">Subfolder within the share used as the root. Leave empty to use the whole share. Backslashes and extra slashes are accepted.</language></description>
+            </field>
+            <field keyName="Share2.DisplayName" type="input">
+                <label><language value="en-US">Display name</language></label>
+                <description><language value="en-US">Name shown in ShareLink and the Files sidebar. Leave empty to use the share name on the host.</language></description>
+            </field>
+            <field keyName="Share2.Port" type="input">
+                <label><language value="en-US">Port</language></label>
+                <description><language value="en-US">TCP port. The default is 445.</language></description>
+            </field>
+            <field keyName="Share2.Domain" type="input">
+                <label><language value="en-US">Domain</language></label>
+                <description><language value="en-US">Active Directory domain, in NetBIOS or DNS form. Example: EXAMPLE. Leave empty when the server has no domain.</language></description>
+            </field>
+            <field keyName="Share2.Username" type="input">
+                <label><language value="en-US">Username</language></label>
+                <description><language value="en-US">Pre-fills sign-in. In Miradore, use the user-name variable and copy the exact token from Miradore's variable list in the console.</language></description>
+            </field>
+            <field keyName="Share2.UsernameLocked" type="checkbox">
+                <label><language value="en-US">Lock username</language></label>
+                <description><language value="en-US">When true, the username field is read-only. The default is false.</language></description>
+            </field>
+            <field keyName="Share2.RequireEncryption" type="checkbox">
+                <label><language value="en-US">Require encryption</language></label>
+                <description><language value="en-US">When true, the connection requires SMB3 encryption and fails if the server cannot encrypt. The default is false.</language></description>
+            </field>
+        </fieldGroup>
+        <fieldGroup>
+            <name><language value="en-US">Options</language></name>
+            <field keyName="AllowUserServers" type="checkbox">
+                <label><language value="en-US">Allow user servers</language></label>
+                <description><language value="en-US">When true, users can add their own servers. When false, Add Server is hidden and user-added servers are removed. The default is true.</language></description>
+            </field>
+            <field keyName="SupportMessage" type="input">
+                <label><language value="en-US">Support message</language></label>
+                <description><language value="en-US">Text shown on the sign-in screen. Example: Use the password for your network account.</language></description>
+            </field>
+        </fieldGroup>
+    </presentation>
+</managedAppConfiguration>
