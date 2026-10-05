@@ -29,6 +29,8 @@ fi
 TEAM_ID=$(sed -nE 's/^[[:space:]]*DEVELOPMENT_TEAM[[:space:]]*=[[:space:]]*([A-Z0-9]{10}).*/\1/p' "$LOCAL_XCCONFIG" | head -1)
 [[ -n "$TEAM_ID" ]] || { echo "DEVELOPMENT_TEAM not set in ${LOCAL_XCCONFIG}" >&2; exit 1; }
 
+# macOS bash 3.2 treats an empty array as unset under set -u. Keep expansions
+# of AUTH_ARGS in the ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} form.
 AUTH_ARGS=()
 if [[ -f .env ]]; then set -a; . ./.env; set +a; fi
 if [[ -n "${ASC_KEY_ID:-}" && -n "${ASC_ISSUER_ID:-}" && -n "${ASC_KEY_PATH:-}" ]]; then
@@ -48,7 +50,7 @@ rm -rf "$ARCHIVE" build/export
 
 xcodebuild -project ShareLink.xcodeproj -scheme ShareLink -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$ARCHIVE" \
-  -allowProvisioningUpdates "${AUTH_ARGS[@]}" \
+  -allowProvisioningUpdates ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" archive
 
 APP="$ARCHIVE/Products/Applications/ShareLink.app"
@@ -65,7 +67,7 @@ cp scripts/ExportOptions.plist "$OPTS"
 [[ $DRY_RUN -eq 1 ]] && /usr/libexec/PlistBuddy -c "Set :destination export" "$OPTS"
 
 xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OPTS" \
-  -exportPath build/export -allowProvisioningUpdates "${AUTH_ARGS[@]}"
+  -exportPath build/export -allowProvisioningUpdates ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"}
 
 if [[ $DRY_RUN -eq 0 ]]; then
   TAG="v$VERSION-$BUILD_NUMBER"
