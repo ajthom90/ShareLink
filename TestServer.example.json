@@ -1,0 +1,10 @@
+{
+  "host": "files.example.com",
+  "port": 445,
+  "share": "Shared",
+  "path": "",
+  "domain": "EXAMPLE",
+  "username": "jdoe",
+  "password": "",
+  "requireEncryption": false
+}

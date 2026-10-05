@@ -1,0 +1,22 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Secret scan
+        run: ./scripts/check-secrets.sh
+      - name: Package unit tests
+        working-directory: Packages/ShareLinkKit
+        run: swift test --filter ShareLinkKitTests
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build app for simulator
+        run: |
+          xcodegen generate
+          xcodebuild -project ShareLink.xcodeproj -scheme ShareLink \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
