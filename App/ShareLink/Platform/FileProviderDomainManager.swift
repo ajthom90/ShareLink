@@ -41,4 +41,12 @@ struct FileProviderDomainManager: DomainManaging {
     func userVisibleRootURL(id: String) async -> URL? {
         try? await manager(id)?.getUserVisibleURL(for: .rootContainer)
     }
+
+    func isUserEnabled(id: String) async -> Bool? {
+        // userEnabled is API_AVAILABLE(ios(16.0)). The app targets iOS 17.
+        guard let domain = try? await NSFileProviderManager.domains().first(where: { $0.identifier.rawValue == id }) else {
+            return nil
+        }
+        return domain.userEnabled
+    }
 }

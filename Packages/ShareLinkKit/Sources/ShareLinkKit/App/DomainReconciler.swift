@@ -17,6 +17,8 @@ public protocol DomainManaging: Sendable {
     func signalWorkingSet(id: String) async
     func evictAll(id: String) async
     func userVisibleRootURL(id: String) async -> URL?
+    /// `nil` when the domain is missing or the enabled state cannot be read.
+    func isUserEnabled(id: String) async -> Bool?
 }
 
 public struct ReconcileResult: Equatable, Sendable {

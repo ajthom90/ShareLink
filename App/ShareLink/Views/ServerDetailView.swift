@@ -30,6 +30,23 @@ struct ServerDetailView: View {
                 }
             }
 
+            if isSignedIn, model.filesLocationEnabled[server.id] == false {
+                Section {
+                    Label("Turn on ShareLink in Files", systemImage: "exclamationmark.circle")
+                        .font(.headline)
+                        .foregroundStyle(Color.accentColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("1. Open the Files app.")
+                    Text("2. Tap Browse, then ⋯ (More) → Edit.")
+                    Text("3. Turn on ShareLink, then tap Done.")
+                    Button("Open Files") {
+                        if let url = URL(string: "shareddocuments://") {
+                            openURL(url)
+                        }
+                    }
+                }
+            }
+
             Section {
                 LabeledContent("Host", value: server.host)
                 LabeledContent("Share", value: server.share)

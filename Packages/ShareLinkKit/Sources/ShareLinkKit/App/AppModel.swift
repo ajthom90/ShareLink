@@ -15,6 +15,8 @@ public final class AppModel {
     public private(set) var supportMessage = ""
     public private(set) var configIssues: [String] = []
     public private(set) var statuses: [String: ServerStatus] = [:]
+    /// Signed-in servers only. Missing means unknown (domain absent or not yet read). `false` means Files has the location turned off.
+    public private(set) var filesLocationEnabled: [String: Bool] = [:]
     public var signInRequest: ServerConfig?
 
     private let configStore: ConfigStore
@@ -37,6 +39,7 @@ public final class AppModel {
 
     public func start(managedConfig: [String: Any]) async {
         await apply(ManagedConfigParser.parse(managedConfig))
+        await refreshFilesLocationEnabled()
     }
 
     /// Same as `start`, but skips work when the parsed configuration matches what is stored.
@@ -50,6 +53,7 @@ public final class AppModel {
         guard let server = servers.first(where: { $0.id == serverID }) else { throw SMBError.notFound }
         try await authenticate(server: server, username: username, password: password)
         await domains.signalWorkingSet(id: serverID)
+        await refreshFilesLocationEnabled()
         if signInRequest?.id == serverID { signInRequest = nil }
         writeFeedback()
     }
@@ -77,6 +81,7 @@ public final class AppModel {
         refresh()
         try await reconcile()
         recomputeStatuses()
+        await refreshFilesLocationEnabled()
         writeFeedback()
     }
 
@@ -119,6 +124,7 @@ public final class AppModel {
         for server in servers where status(for: server.id) == .signedIn {
             await domains.signalWorkingSet(id: server.id)
         }
+        await refreshFilesLocationEnabled()
     }
 
     /// Replaces the `file` scheme on the user-visible root URL and keeps the path.
@@ -174,6 +180,16 @@ public final class AppModel {
         supportMessage = configuration.supportMessage
         configIssues = configuration.issues
         servers = configStore.allServers()
+    }
+
+    private func refreshFilesLocationEnabled() async {
+        var next: [String: Bool] = [:]
+        for server in servers where status(for: server.id) == .signedIn {
+            if let enabled = await domains.isUserEnabled(id: server.id) {
+                next[server.id] = enabled
+            }
+        }
+        filesLocationEnabled = next
     }
 
     private func recomputeStatuses() {

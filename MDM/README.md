@@ -44,7 +44,7 @@ The token syntax differs by console and is not written here. Copy it from Mirado
 1. Open ShareLink. Each configured share is listed under its display name with a lock badge. Managed shares cannot be edited or deleted in the app.
 2. Tap a share that still needs a password. The sign-in sheet shows the display name, a read-only summary of the host, share, and path, the domain, and the username when `Username` was set. When `UsernameLocked` is true, the username cannot be changed. `SupportMessage` is shown on this screen.
 3. Enter the password and sign in. ShareLink connects and lists the share root before it saves the password to the Keychain.
-4. The share appears in the Files app under that display name: Files → Browse → the ShareLink location.
+4. The share appears in the Files app: Files → Browse → the ShareLink location. The first time, users may need to turn on ShareLink in Files: open the Files app, tap Browse, then ⋯ (More) → Edit, turn on ShareLink, and tap Done. With a single share, Files shows the location as "ShareLink". With several shares, each appears under its `DisplayName`.
 5. When `AllowUserServers` is false, Add Server is hidden and any server the user had added is removed.
 6. When a managed share is removed from the configuration, its Files location disappears, along with that share's cached files, metadata, and saved password.
 

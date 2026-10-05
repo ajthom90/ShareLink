@@ -88,6 +88,28 @@ import Foundation
         #expect(model.signInRequest?.id == id)
     }
 
+    @Test func filesLocationDisabledUntilUserEnablesIt() async throws {
+        let (model, mgr, _, _, _) = make()
+        await model.start(managedConfig: managed)
+        let id = model.servers[0].id
+        await mgr.setUserEnabled(false, for: id)
+        try await model.signIn(serverID: id, username: "jdoe", password: "pw")
+        #expect(model.filesLocationEnabled[id] == false)
+        await mgr.setUserEnabled(true, for: id)
+        await model.appDidBecomeActive()
+        #expect(model.filesLocationEnabled[id] == true)
+    }
+
+    @Test func startRefreshesFilesLocationForSignedInServer() async throws {
+        let (model, mgr, creds, _, _) = make()
+        await model.start(managedConfig: managed)
+        let id = model.servers[0].id
+        try creds.setCredential(Credential(username: "jdoe", password: "pw"), for: id)
+        await mgr.setUserEnabled(false, for: id)
+        await model.start(managedConfig: managed)
+        #expect(model.filesLocationEnabled[id] == false)
+    }
+
     @Test func openInFilesURLUsesSharedDocumentsScheme() async throws {
         let (model, _, _, _, _) = make()
         await model.start(managedConfig: managed)

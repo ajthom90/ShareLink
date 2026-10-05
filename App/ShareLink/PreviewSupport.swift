@@ -9,6 +9,7 @@ struct PreviewDomainManager: DomainManaging {
     func signalWorkingSet(id: String) async {}
     func evictAll(id: String) async {}
     func userVisibleRootURL(id: String) async -> URL? { nil }
+    func isUserEnabled(id: String) async -> Bool? { nil }
 }
 
 @MainActor
