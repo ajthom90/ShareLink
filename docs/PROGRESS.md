@@ -9,7 +9,7 @@
 | 5. AMSMB2 client, error mapping, Samba integration tests | done | `swift test --filter ShareLinkKitTests`: 27 tests passed. `swift test --filter SambaIntegrationTests` with the Samba container up: 8 tests passed. With the container stopped: 8 tests skipped, exit 0 (suite disabled in 0.001s; the port probe did not hang). `check-secrets.sh` exit 0. |
 | 6. Versions, hidden names, item records, metadata store | done | Built in parallel worktree (branch tasks-6-7), rebased onto main. 12 tests incl. extra `renameDoesNotTouchPrefixSiblings` and `versionStableAcrossReload` (dates stored as Double seconds; GRDB default text dates keep only ms). Reviewed by Claude. |
 | 7. Folder scanner | done | 7 tests (replace-save keeps identifier, fileID rename, zero-fileID delete+insert). Full unit suite after merge: 46 passed. Reviewed by Claude. |
-| 8. File Provider items, errors, connection provider, provider engine | done | `swift test --filter ShareLinkKitTests`: 65 tests passed (19 in ConflictNamer, FileProviderItem, and ProviderEngine, including the plan's tests). `check-secrets.sh` exit 0. |
+| 8. File Provider items, errors, connection provider, provider engine | done | `swift test --filter ShareLinkKitTests`: 65 tests passed (19 in ConflictNamer, FileProviderItem, and ProviderEngine, including the plan's tests). `check-secrets.sh` exit 0. Fix round (hidden-file rescans, create races, server-deleted saves, connection dedupe, MDM default slots): `swift test --filter ShareLinkKitTests`: 73 tests passed. `check-secrets.sh` exit 0. |
 | 9. File Provider extension wiring | pending | |
 | 10. Domain reconciliation and the app model | pending | |
 | 11. SwiftUI app — servers, sign-in, server forms, detail | pending | |

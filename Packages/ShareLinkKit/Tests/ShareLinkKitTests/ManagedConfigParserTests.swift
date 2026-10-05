@@ -53,6 +53,15 @@ import Foundation
         #expect(cfg.servers[1].port == 4450)
     }
 
+    @Test func defaultsOnlySlotIsIgnored() {
+        let cfg = ManagedConfigParser.parse([
+            "Host": "a.example.com", "Share": "S",
+            "Share2.Port": "445", "Share2.RequireEncryption": false,
+        ])
+        #expect(cfg.servers.count == 1)
+        #expect(cfg.issues.isEmpty)
+    }
+
     @Test func missingRequiredKeysRecordIssues() {
         let cfg = ManagedConfigParser.parse(["Host": "a.example.com", "Share2.Share": "Two"])
         #expect(cfg.servers.isEmpty)

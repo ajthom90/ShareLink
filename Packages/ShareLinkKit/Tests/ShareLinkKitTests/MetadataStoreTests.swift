@@ -130,4 +130,14 @@ import Foundation
         #expect(try s2.item("A") != nil)
         #expect(try s2.currentAnchor() == 1)
     }
+
+    @Test func upsertDisplacingPathRecordsDelete() throws {
+        let s = try MetadataStore.inMemory()
+        try s.recordLocalUpsert(rec("A", parent: root, path: "x"))
+        let before = try s.currentAnchor()
+        try s.recordLocalUpsert(rec("B", parent: root, path: "x"))
+        #expect(try s.item("A") == nil)
+        #expect(try s.changes(after: before, limit: 10).contains { $0.identifier == "A" && $0.kind == .delete })
+        #expect(try s.item(atPath: "x")?.identifier == "B")
+    }
 }

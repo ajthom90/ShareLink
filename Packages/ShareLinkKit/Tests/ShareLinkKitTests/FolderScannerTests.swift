@@ -61,4 +61,17 @@ import Foundation
         let d = FolderScanner.diff(folder: folder, existing: [record("A", entry("a.docx"))], listing: [])
         #expect(d.deletes == ["A"])
     }
+
+    @Test func hiddenNameCreatedLocallySurvivesRescan() {
+        let hidden = entry("~$a.docx")
+        let d = FolderScanner.diff(folder: folder, existing: [record("H", hidden)], listing: [hidden], makeIdentifier: ids())
+        #expect(d.deletes.isEmpty)
+        #expect(d.inserts.isEmpty)
+    }
+
+    @Test func hiddenNameNotInDBStaysHidden() {
+        let d = FolderScanner.diff(folder: folder, existing: [], listing: [entry("~$b.docx")], makeIdentifier: ids())
+        #expect(d.inserts.isEmpty)
+        #expect(d.deletes.isEmpty)
+    }
 }

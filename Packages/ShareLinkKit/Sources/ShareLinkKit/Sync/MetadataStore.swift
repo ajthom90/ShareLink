@@ -85,6 +85,11 @@ public final class MetadataStore: Sendable {
 
     public func recordLocalUpsert(_ record: ItemRecord) throws {
         try queue.write { db in
+            // INSERT OR REPLACE drops a different identifier at this path without a delete change.
+            if let occupant = try ItemRecord.fetchOne(db, sql: "SELECT * FROM items WHERE relativePath = ?", arguments: [record.relativePath]),
+               occupant.identifier != record.identifier {
+                try Self.deleteSubtree(db, identifier: occupant.identifier)
+            }
             try record.insert(db, onConflict: .replace)
             try Self.appendChange(db, identifier: record.identifier, parentIdentifier: record.parentIdentifier, kind: .update)
         }

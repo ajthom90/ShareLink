@@ -7,8 +7,6 @@ public enum FolderScanner {
         listing: [RemoteEntry],
         makeIdentifier: () -> String = { UUID().uuidString }
     ) -> FolderDiff {
-        let visible = listing.filter { !HiddenNames.isHidden($0.name) }
-
         var byName: [String: ItemRecord] = [:]
         for item in existing where byName[item.name] == nil {
             byName[item.name] = item
@@ -18,13 +16,14 @@ public enum FolderScanner {
         var updates: [ItemRecord] = []
         var unmatchedListing: [RemoteEntry] = []
 
-        for entry in visible {
+        // Skip hidden listing names only when no existing child has that name.
+        for entry in listing {
             if let current = byName[entry.name] {
                 matched.insert(current.identifier)
                 if changed(current, entry) {
                     updates.append(record(folder: folder, entry: entry, identifier: current.identifier, lastScanned: current.lastScanned))
                 }
-            } else {
+            } else if !HiddenNames.isHidden(entry.name) {
                 unmatchedListing.append(entry)
             }
         }

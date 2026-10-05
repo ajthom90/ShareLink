@@ -199,6 +199,29 @@ final class Template: NSObject, NSFileProviderItem {
         #expect(await h.fake.connectCount == 0)
     }
 
+    @Test func createReusesIdentifierFoundByConcurrentRescan() async throws {
+        let h = try makeHarness()
+        _ = try await h.engine.enumerateItems(in: .rootContainer, page: nil)
+        try h.store.recordLocalUpsert(ItemRecord(
+            identifier: "R", parentIdentifier: ItemRecord.rootIdentifier, relativePath: "new.txt", name: "new.txt",
+            isDirectory: false, size: 0, modified: Date(timeIntervalSince1970: 1), created: nil, fileID: 0, lastScanned: nil))
+        let created = try await h.engine.createItem(
+            template: Template(parent: .rootContainer, name: "new.txt", type: .plainText),
+            fields: [.contents], contents: try tmp("hi"), mayAlreadyExist: false, progress: Progress())
+        #expect(created.itemIdentifier.rawValue == "R")
+    }
+
+    @Test func modifyRecreatesFileDeletedOnServer() async throws {
+        let h = try makeHarness()
+        await h.fake.seedFile("a.docx", contents: Data("old".utf8), modified: Date(timeIntervalSince1970: 1), fileID: 1)
+        let (items, _) = try await h.engine.enumerateItems(in: .rootContainer, page: nil)
+        let id = items[0].itemIdentifier
+        try await h.fake.remove("a.docx")
+        let updated = try await h.engine.modifyItem(items[0], baseVersion: items[0].itemVersion, changedFields: [.contents], contents: try tmp("saved"), progress: Progress())
+        #expect(await h.fake.contents(of: "a.docx") == Data("saved".utf8))
+        #expect(updated.itemIdentifier == id)
+    }
+
     @Test func trashAndUnknownItemsDoNotExist() async throws {
         let h = try makeHarness()
         await #expect(throws: NSFileProviderError.self) {

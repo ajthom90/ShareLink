@@ -20,9 +20,13 @@ actor FakeSMBClient: SMBClient {
     private(set) var connectCount = 0
     private(set) var disconnectCount = 0
     private(set) var listCount = 0
+    /// Incremented at the start of `connect()`, before `connectDelay` and before a queued failure.
+    private(set) var connectStarted = 0
+    private let connectDelay: Duration
 
-    init(clock: @escaping @Sendable () -> Date = { Date() }) {
+    init(clock: @escaping @Sendable () -> Date = { Date() }, connectDelay: Duration = .zero) {
         self.clock = clock
+        self.connectDelay = connectDelay
         let root = Node(isDirectory: true, data: Data(), modified: .distantPast, created: nil, fileID: 0)
         self.nodes = ["": root]
     }
@@ -73,6 +77,10 @@ actor FakeSMBClient: SMBClient {
     }
 
     func connect() async throws {
+        connectStarted += 1
+        if connectDelay > .zero {
+            try await Task.sleep(for: connectDelay)
+        }
         try consumeFailure()
         connectCount += 1
     }

@@ -126,7 +126,7 @@ public actor ProviderEngine {
             throw SMBError.alreadyExists
         }
         let entry = try await stat(path)
-        let created = record(from: entry, identifier: UUID().uuidString, parentIdentifier: parentID, lastScanned: nil)
+        let created = try observedRecord(entry, path: path, fallbackParent: parentID)
         try store.recordLocalUpsert(created)
         return makeItem(created)
     }
@@ -151,7 +151,19 @@ public actor ProviderEngine {
         }
 
         if changedFields.contains(.contents), let contents {
-            let serverEntry = try await stat(record.relativePath)
+            let serverEntry: RemoteEntry
+            do {
+                serverEntry = try await stat(record.relativePath)
+            } catch SMBError.notFound {
+                // The file is gone on the server. Put the user's bytes back at the same path.
+                // A missing parent still throws from the upload.
+                try await upload(from: contents, to: record.relativePath, overwrite: false, progress: progress)
+                let after = try await stat(record.relativePath)
+                let recreated = self.record(from: after, identifier: record.identifier,
+                                            parentIdentifier: record.parentIdentifier, lastScanned: record.lastScanned)
+                try store.recordLocalUpsert(recreated)
+                return makeItem(recreated)
+            }
             let serverRecord = self.record(from: serverEntry, identifier: record.identifier,
                                            parentIdentifier: record.parentIdentifier, lastScanned: record.lastScanned)
             if serverRecord.contentVersion != baseContent {
@@ -159,8 +171,7 @@ public actor ProviderEngine {
                 let conflictPath = SMBPath.join(SMBPath.parent(of: record.relativePath), conflictName)
                 try await upload(from: contents, to: conflictPath, overwrite: false, progress: progress)
                 let conflictEntry = try await stat(conflictPath)
-                let conflict = self.record(from: conflictEntry, identifier: UUID().uuidString,
-                                           parentIdentifier: record.parentIdentifier, lastScanned: nil)
+                let conflict = try observedRecord(conflictEntry, path: conflictPath, fallbackParent: record.parentIdentifier)
                 try store.recordLocalUpsert(conflict)
                 signalWorkingSet()
                 let refreshedEntry = try await stat(record.relativePath)
@@ -281,12 +292,20 @@ public actor ProviderEngine {
 
     private func adoptExisting(path: String, parentID: String) async throws -> FileProviderItem {
         let entry = try await stat(path)
-        let existing = try store.item(atPath: path) ?? store.item(atPath: entry.path)
-        let identifier = existing?.identifier ?? UUID().uuidString
-        let parent = existing?.parentIdentifier ?? parentID
-        let adopted = record(from: entry, identifier: identifier, parentIdentifier: parent, lastScanned: existing?.lastScanned)
+        let adopted = try observedRecord(entry, path: path, fallbackParent: parentID)
         try store.recordLocalUpsert(adopted)
         return makeItem(adopted)
+    }
+
+    /// A rescan can insert this path under its own identifier before we record the upload.
+    /// Reuse that row so the same path does not get a second identifier.
+    private func observedRecord(_ entry: RemoteEntry, path: String, fallbackParent: String) throws -> ItemRecord {
+        let existing = try store.item(atPath: path) ?? store.item(atPath: entry.path)
+        return record(
+            from: entry,
+            identifier: existing?.identifier ?? UUID().uuidString,
+            parentIdentifier: existing?.parentIdentifier ?? fallbackParent,
+            lastScanned: existing?.lastScanned)
     }
 
     private func localContents(_ contents: URL?) throws -> URL {

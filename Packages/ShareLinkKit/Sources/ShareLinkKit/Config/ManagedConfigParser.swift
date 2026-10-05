@@ -12,11 +12,10 @@ public enum ManagedConfigParser {
         for slot in 1...maxShares {
             let prefix = slot == 1 ? "" : "Share\(slot)."
             func value(_ key: String) -> Any? { dict[prefix + key] }
-            let shareKeys = ["Host", "Share", "Path", "DisplayName", "Port", "Domain", "Username", "UsernameLocked", "RequireEncryption"]
-            guard shareKeys.contains(where: { value($0) != nil }) else { continue }
-
             let host = LenientValue.string(value("Host"))
             let share = LenientValue.string(value("Share"))
+            // Consoles upload default Port/RequireEncryption for unused slots. Those are not a share.
+            guard host != nil || share != nil else { continue }
             var missing: [String] = []
             if host == nil { missing.append("Host") }
             if share == nil { missing.append("Share") }
