@@ -7,8 +7,8 @@
 | 3. ConfigStore, credentials, managed feedback | done | `swift test --filter "ConfigStoreTests\|CredentialStoreTests\|ManagedFeedbackTests"`: 5 tests passed. `swift test --filter ShareLinkKitTests`: 16 tests passed. `check-secrets.sh` exit 0. |
 | 4. SMB client abstraction, error model, fake client | done | `swift test --filter FakeSMBClientTests`: 4 tests passed. `swift test --filter ShareLinkKitTests`: 20 tests passed. `check-secrets.sh` exit 0. |
 | 5. AMSMB2 client, error mapping, Samba integration tests | done | `swift test --filter ShareLinkKitTests`: 27 tests passed. `swift test --filter SambaIntegrationTests` with the Samba container up: 8 tests passed. With the container stopped: 8 tests skipped, exit 0 (suite disabled in 0.001s; the port probe did not hang). `check-secrets.sh` exit 0. |
-| 6. Versions, hidden names, item records, metadata store | pending | |
-| 7. Folder scanner | pending | |
+| 6. Versions, hidden names, item records, metadata store | done | Built in parallel worktree (branch tasks-6-7), rebased onto main. 12 tests incl. extra `renameDoesNotTouchPrefixSiblings` and `versionStableAcrossReload` (dates stored as Double seconds; GRDB default text dates keep only ms). Reviewed by Claude. |
+| 7. Folder scanner | done | 7 tests (replace-save keeps identifier, fileID rename, zero-fileID delete+insert). Full unit suite after merge: 46 passed. Reviewed by Claude. |
 | 8. File Provider items, errors, connection provider, provider engine | pending | |
 | 9. File Provider extension wiring | pending | |
 | 10. Domain reconciliation and the app model | pending | |
