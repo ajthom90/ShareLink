@@ -3,7 +3,7 @@
 | Task | Status | Evidence |
 | --- | --- | --- |
 | 1. Project scaffold, package skeleton, hygiene, CI | done | `swift test --filter ShareLinkKitTests`: 2 tests passed. Simulator `xcodebuild` (`CODE_SIGNING_ALLOWED=NO`, `-derivedDataPath build/DerivedData`) exit 0. `./scripts/verify-bundle.sh` exit 0: Info.plist keys and App Group entitlements come from `project.yml` properties, privacy manifests are in the app and appex, no nested frameworks, `AMSMB2.framework` is in the app. `check-secrets.sh` exit 0. |
-| 2. Config models and managed configuration parser | pending | |
+| 2. Config models and managed configuration parser | done | `swift test --filter "SMBPathTests\|ManagedConfigParserTests"`: 9 tests passed. `swift test --filter ShareLinkKitTests`: 11 tests passed. `check-secrets.sh` exit 0. |
 | 3. ConfigStore, credentials, managed feedback | pending | |
 | 4. SMB client abstraction, error model, fake client | pending | |
 | 5. AMSMB2 client, error mapping, Samba integration tests | pending | |
