@@ -354,6 +354,8 @@ schemes:
       config: Release
 ```
 
+> **XcodeGen note (learned in review):** XcodeGen regenerates `info.path` / `entitlements.path` files from `info.properties` / `entitlements.properties` on every `xcodegen generate`. All keys below MUST be declared as `properties` in `project.yml`; the plist files are generated outputs (committed). `scripts/verify-bundle.sh <ShareLink.app>` checks the built bundle and runs in CI and in `scripts/testflight.sh`.
+
 `App/ShareLink/Info.plist` keys:
 - `CFBundleDisplayName` = `ShareLink`, `CFBundleShortVersionString` = `$(MARKETING_VERSION)`, `CFBundleVersion` = `$(CURRENT_PROJECT_VERSION)`
 - `CFBundleIdentifier` = `$(PRODUCT_BUNDLE_IDENTIFIER)`, `CFBundleExecutable` = `$(EXECUTABLE_NAME)`, `CFBundlePackageType` = `APPL`, `CFBundleName` = `$(PRODUCT_NAME)`
@@ -3197,6 +3199,7 @@ xcodebuild -project ShareLink.xcodeproj -scheme ShareLink -configuration Release
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" archive
 
 APP="$ARCHIVE/Products/Applications/ShareLink.app"
+./scripts/verify-bundle.sh "$APP"
 if find "$APP/PlugIns" -name '*.framework' -maxdepth 3 | grep -q .; then
   echo "ERROR: nested frameworks inside the extension; App Store will reject this build" >&2; exit 1
 fi
