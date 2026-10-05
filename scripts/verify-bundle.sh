@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Checks a built ShareLink.app for the Info.plist, privacy manifest, and
 # framework layout Task 1 requires. Source entitlements must contain the App
-# Group. Unsigned simulator builds do not embed entitlements. When
-# `codesign -d --entitlements :-` succeeds and prints a plist, the app and the
-# appex must both include group.com.ajthom90.sharelink.
+# Group. Embedded entitlements are checked only for a real signature
+# (codesign -dvv does not report Signature=adhoc) whose entitlements dict is
+# non-empty. Ad-hoc and unsigned simulator builds keep the source check only.
+# VERIFY_BUNDLE_FORCE_EMBEDDED_CHECK=1 pretends the signature is not ad-hoc
+# so a self-test can cover that branch without a distribution certificate.
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
@@ -94,7 +96,6 @@ do
 done
 
 # Writes a plist to dest and returns 0 when codesign prints embedded entitlements.
-# Unsigned simulator builds produce no plist; that path stays source-only.
 has_embedded_entitlements_plist() {
   local target="$1" dest="$2" ent
   if ! ent="$(codesign -d --entitlements :- "$target" 2>/dev/null)"; then
@@ -105,6 +106,24 @@ has_embedded_entitlements_plist() {
   fi
   printf '%s' "$ent" > "$dest"
   plutil -lint "$dest" >/dev/null 2>&1
+}
+
+# Simulator builds are ad-hoc (Signature=adhoc), including linker-signed ones.
+# codesign writes this description to stderr.
+signature_is_adhoc() {
+  local target="$1" info
+  if ! info="$(codesign -dvv "$target" 2>&1)"; then
+    return 0
+  fi
+  [[ "$info" == *"Signature=adhoc"* ]]
+}
+
+# An empty dict is the simulated-entitlements blob, not a real entitlement set.
+entitlements_dict_nonempty() {
+  local file="$1" rendered compact
+  rendered="$(plutil -p "$file" 2>/dev/null)" || return 1
+  compact="${rendered//[[:space:]]/}"
+  [[ -n "$compact" && "$compact" != "{}" ]]
 }
 
 require_embedded_app_group() {
@@ -123,7 +142,14 @@ require_embedded_app_group() {
 
 ent_tmp="$(mktemp -d)"
 trap 'rm -rf "$ent_tmp"' EXIT
-if has_embedded_entitlements_plist "$APP" "${ent_tmp}/app.plist"; then
+enforce_embedded=0
+if has_embedded_entitlements_plist "$APP" "${ent_tmp}/app.plist" \
+  && entitlements_dict_nonempty "${ent_tmp}/app.plist"; then
+  if [[ "${VERIFY_BUNDLE_FORCE_EMBEDDED_CHECK:-}" == "1" ]] || ! signature_is_adhoc "$APP"; then
+    enforce_embedded=1
+  fi
+fi
+if [[ "$enforce_embedded" -eq 1 ]]; then
   require_embedded_app_group "app" "${ent_tmp}/app.plist"
   if ! has_embedded_entitlements_plist "$APPEX" "${ent_tmp}/appex.plist"; then
     fail "appex embedded entitlements plist missing"
