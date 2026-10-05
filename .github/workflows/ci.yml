@@ -19,4 +19,7 @@ jobs:
           xcodegen generate
           xcodebuild -project ShareLink.xcodeproj -scheme ShareLink \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO build
+      - name: Verify built bundle
+        run: ./scripts/verify-bundle.sh build/DerivedData/Build/Products/Debug-iphonesimulator/ShareLink.app

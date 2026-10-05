@@ -19,8 +19,37 @@ targets:
       - App/ShareLink
     info:
       path: App/ShareLink/Info.plist
+      properties:
+        CFBundleDisplayName: ShareLink
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        CFBundlePackageType: APPL
+        CFBundleName: "$(PRODUCT_NAME)"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        "UISupportedInterfaceOrientations~ipad":
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
+        NSLocalNetworkUsageDescription: ShareLink connects to file servers on your local network.
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - sharelink
     entitlements:
       path: App/ShareLink/ShareLink.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.ajthom90.sharelink
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ajthom90.sharelink
@@ -37,8 +66,26 @@ targets:
       - Extensions/FileProvider
     info:
       path: Extensions/FileProvider/Info.plist
+      properties:
+        CFBundleDisplayName: ShareLink
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        CFBundlePackageType: "XPC!"
+        CFBundleName: "$(PRODUCT_NAME)"
+        ITSAppUsesNonExemptEncryption: false
+        NSLocalNetworkUsageDescription: ShareLink connects to file servers on your local network.
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.fileprovider-nonui
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).FileProviderExtension"
+          NSExtensionFileProviderDocumentGroup: group.com.ajthom90.sharelink
+          NSExtensionFileProviderSupportsEnumeration: true
     entitlements:
       path: Extensions/FileProvider/FileProvider.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.ajthom90.sharelink
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ajthom90.sharelink.FileProvider
