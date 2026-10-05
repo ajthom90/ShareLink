@@ -1,0 +1,4 @@
+services:
+  samba:
+    build: .
+    ports: ["1445:445"]
