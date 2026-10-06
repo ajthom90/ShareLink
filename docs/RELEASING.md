@@ -1,5 +1,7 @@
 # Releasing ShareLink
 
+> **Minimum-OS gate (decided 2026-10-06):** ShareLink keeps iOS/iPadOS 17.0 as its minimum, but the File Provider path cannot be verified on the iPadOS 17.x simulator (see "Known limitation" in `docs/TESTING.md`). The first TestFlight build must be tested on a **physical iOS/iPadOS 17 device** with the on-device Office checklist. If the ShareLink location does not work there, raise `IPHONEOS_DEPLOYMENT_TARGET` (Config/Base.xcconfig and project.yml) before any App Store release.
+
 Archive and upload with Xcode Cloud. `scripts/testflight.sh` is the local alternative.
 
 ## First TestFlight build checklist

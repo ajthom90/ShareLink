@@ -4,7 +4,7 @@ ShareLink is a free, open-source SMB client for iPhone and iPad. It connects to 
 
 Organizations that manage devices with an MDM push the server, share, and path through managed app configuration. The user signs in with a password. People without an MDM can add a server themselves.
 
-> **Status: pre-release.** The File Provider integration is verified on the iOS Simulator against a Samba server (sign-in, the Files location, listing, and folder creation; see [docs/TESTING.md](docs/TESTING.md)). Opening and saving documents from Microsoft Office on a real device has not been verified yet; the on-device checklist in `docs/TESTING.md` is the acceptance test for the first TestFlight build.
+> **Status: pre-release.** The File Provider integration is verified on the iOS Simulator against a Samba server (sign-in, the Files location, listing, and folder creation; see [docs/TESTING.md](docs/TESTING.md)). Opening and saving documents from Microsoft Office on a real device has not been verified yet, and neither has the Files location on iOS/iPadOS 17 (it cannot be exercised on the 17.x simulator); the on-device checklist in `docs/TESTING.md` is the acceptance test for the first TestFlight build.
 
 ## Features
 
