@@ -24,6 +24,9 @@
 # of any name, which is the proof that createItem reached Samba.
 #
 # Exits 0 and prints SKIP when 127.0.0.1:1445 is not accepting TCP.
+#
+# E2E_SIMULATOR_UDID, when set, boots that simulator instead of the newest
+# available iPad. Use an iPadOS 17.x device to cover the minimum OS.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -38,12 +41,20 @@ on_exit() {
 }
 trap on_exit EXIT
 
-# `simctl spawn` cannot disable fileproviderd (not permitted). The daemon is a
-# host process whose open files include this device's data directory.
+# `simctl spawn` cannot disable fileproviderd (not permitted). A simulator's
+# daemon is a runtime process: its executable path contains /CoreSimulator/ or
+# RuntimeRoot, and its open files include this device's data directory. The
+# Mac's own /System/Library/.../fileproviderd matches the same process name and
+# can have that device open; it must never be signalled.
 fileproviderd_pids() {
   local udid="$1"
-  local pid
+  local pid exe
   for pid in $(pgrep -f 'FileProvider.framework/Support/fileproviderd' || true); do
+    exe="$(lsof -a -p "$pid" -d txt -Fn 2>/dev/null | awk '/FileProvider\.framework\/Support\/fileproviderd/ { sub(/^n/, ""); print; exit }' || true)"
+    case "$exe" in
+      *"/CoreSimulator/"*|*RuntimeRoot*) ;;
+      *) continue ;;
+    esac
     if lsof -p "$pid" 2>/dev/null | grep -q "$udid"; then
       printf '%s\n' "$pid"
     fi
@@ -128,8 +139,24 @@ if ! nc -z -G 2 127.0.0.1 1445 >/dev/null 2>&1; then
   exit 0
 fi
 
-UDID="$(
-  python3 - <<'PY'
+if [[ -n "${E2E_SIMULATOR_UDID:-}" ]]; then
+  UDID="$E2E_SIMULATOR_UDID"
+  UDID="$UDID" python3 - <<'PY'
+import json, os, subprocess, sys
+udid = os.environ["UDID"]
+raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"])
+data = json.loads(raw)
+for runtime, devices in data.get("devices", {}).items():
+    for device in devices:
+        if device.get("udid") == udid and device.get("isAvailable", True):
+            print(f"simulator: {device.get('name', udid)} {runtime} {udid}", file=sys.stderr)
+            sys.exit(0)
+print(f"E2E_SIMULATOR_UDID {udid} is not an available simulator", file=sys.stderr)
+sys.exit(1)
+PY
+else
+  UDID="$(
+    python3 - <<'PY'
 import json, re, subprocess, sys
 raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"])
 data = json.loads(raw)
@@ -166,9 +193,28 @@ chosen = tied[0]
 print(f"simulator: {chosen[2]} iOS {chosen[0][0]}.{chosen[0][1]} {chosen[3]}", file=sys.stderr)
 print(chosen[3])
 PY
-)"
+  )"
+fi
 
-echo "Using simulator ${UDID}"
+SIM_MAJOR="$(
+  UDID="$UDID" python3 - <<'PY'
+import json, os, re, subprocess, sys
+udid = os.environ["UDID"]
+raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"])
+data = json.loads(raw)
+for runtime, devices in data.get("devices", {}).items():
+    if any(device.get("udid") == udid for device in devices):
+        match = re.search(r"iOS-(\d+)", runtime)
+        if not match:
+            print(f"no iOS version in runtime {runtime}", file=sys.stderr)
+            sys.exit(1)
+        print(match.group(1))
+        sys.exit(0)
+print(f"no runtime for {udid}", file=sys.stderr)
+sys.exit(1)
+PY
+)"
+echo "Using simulator ${UDID} (iOS ${SIM_MAJOR})"
 if [[ "${E2E_ERASE:-0}" == "1" ]]; then
   echo "E2E_ERASE=1: erasing simulator ${UDID}"
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true

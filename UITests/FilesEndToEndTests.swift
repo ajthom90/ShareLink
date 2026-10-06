@@ -19,6 +19,9 @@ final class FilesEndToEndTests: XCTestCase {
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
+        // The portrait bug is a regular-size iPad hiding the sidebar. Both OS
+        // versions run the same assertions in that orientation.
+        XCUIDevice.shared.orientation = .portrait
     }
 
     func testSignInListsShareAndCreatesFolder() throws {
@@ -56,6 +59,10 @@ final class FilesEndToEndTests: XCTestCase {
         expectation(for: enabled, evaluatedWith: submit)
         waitForExpectations(timeout: 5)
         submit.tap()
+        // Passwords can cover the signed-in screen with "Save Password?".
+        // The sheet is often SpringBoard's, so the app's status row still
+        // exists and is simply not hittable.
+        dismissSavePasswordPrompt(around: app, timeout: 4)
 
         try waitForSignedIn(app)
         attach(app.screenshot(), name: "02-signed-in")
@@ -95,13 +102,22 @@ final class FilesEndToEndTests: XCTestCase {
 
     private func waitForSignedIn(_ app: XCUIApplication) throws {
         let deadline = Date().addingTimeInterval(30)
+        var sawSignedIn = false
         while Date() < deadline {
             dismissSystemAlerts(around: app)
-            if let status = element(identifier: "server.status", in: app) {
+            dismissSavePasswordPrompt(around: app, timeout: 0)
+            // Re-check after the alert is gone. `server.status` still exists
+            // while a sheet covers it; toggling then hides the open sidebar.
+            // Open the sidebar only when that row is absent.
+            if element(identifier: "server.status", in: app) == nil {
+                revealCollapsedAppSidebar(app)
+            }
+            if let status = element(identifier: "server.status", in: app), status.isHittable {
                 let value = status.value as? String ?? ""
                 if status.label.localizedCaseInsensitiveContains("Signed in")
                     || value.localizedCaseInsensitiveContains("Signed in") {
-                    return
+                    sawSignedIn = true
+                    if sidebarToolbarReachable(app) { return }
                 }
             }
             if app.staticTexts["Couldn't sign in. Check your username and password."].exists {
@@ -118,8 +134,44 @@ final class FilesEndToEndTests: XCTestCase {
         }
         attach(app.screenshot(), name: "sign-in-timeout")
         attachHierarchy("sign-in-timeout", app)
+        if sawSignedIn {
+            XCTFail("Add Server and Settings were not reachable without a hidden sidebar")
+            throw E2EError.failed("sidebar toolbar hidden")
+        }
         XCTFail("server did not show signed-in status within 30s")
         throw E2EError.failed("signed-in timeout")
+    }
+
+    /// Add Server and Settings stay in the sidebar toolbar. They count as reachable
+    /// only when a tap can hit them, which is the portrait case the split view must show.
+    private func sidebarToolbarReachable(_ app: XCUIApplication) -> Bool {
+        hittableButton(app, label: "Add Server") && hittableButton(app, label: "Settings")
+    }
+
+    private func hittableButton(_ app: XCUIApplication, label: String) -> Bool {
+        let matches = app.buttons.matching(NSPredicate(format: "label == %@", label))
+        let count = min(matches.count, 6)
+        for index in 0..<count {
+            let match = matches.element(boundBy: index)
+            if match.exists && match.isHittable { return true }
+        }
+        return false
+    }
+
+    /// iPadOS 17 portrait can still collapse the sidebar. Callers open it only
+    /// when `server.status` does not exist. A button labeled Hide Sidebar is already open.
+    private func revealCollapsedAppSidebar(_ app: XCUIApplication) {
+        for identifier in ["ToggleSidebar", "ToggleSideBar"] {
+            let toggle = app.buttons[identifier].firstMatch
+            guard toggle.exists, toggle.isHittable else { continue }
+            let label = toggle.label.lowercased()
+            if label.contains("hide") { return }
+            if label.contains("show") || label.isEmpty {
+                toggle.tap()
+                return
+            }
+        }
+        _ = tapFirst(in: app, labels: ["Show Sidebar", "Toggle sidebar"], types: [.button])
     }
 
     private func element(identifier: String, in app: XCUIApplication) -> XCUIElement? {
@@ -130,6 +182,37 @@ final class FilesEndToEndTests: XCTestCase {
             if match.exists { return match }
         }
         return nil
+    }
+
+    /// "Save Password?" is presented by SpringBoard or the app after Sign In.
+    /// Tap "Not Now". The interruption monitor handles the same button when
+    /// the system delivers it as an alert on the next app event.
+    private func dismissSavePasswordPrompt(around app: XCUIApplication, timeout: TimeInterval) {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let passwords = XCUIApplication(bundleIdentifier: "com.apple.Passwords")
+        let deadline = Date().addingTimeInterval(max(timeout, 0))
+        repeat {
+            if tapNotNow(in: springboard) || tapNotNow(in: app) {
+                return
+            }
+            if passwords.state == .runningForeground || passwords.state == .runningBackground {
+                if tapNotNow(in: passwords) { return }
+            }
+            if timeout < 0.05 { return }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        } while Date() < deadline
+    }
+
+    private func tapNotNow(in host: XCUIApplication) -> Bool {
+        let predicate = NSPredicate(format: "label == 'Not Now'")
+        for query in [host.sheets.buttons, host.alerts.buttons, host.buttons] {
+            let button = query.matching(predicate).firstMatch
+            if button.exists && button.isHittable {
+                button.tap()
+                return true
+            }
+        }
+        return false
     }
 
     private func dismissSystemAlerts(around app: XCUIApplication) {
@@ -179,7 +262,17 @@ final class FilesEndToEndTests: XCTestCase {
                 if !showingProviderLocation(files) {
                     revealLocation(named: locationName, in: files, attempt: attempt)
                     if !inSidebarEditMode(files) {
-                        _ = tapFirst(in: files, labels: [locationName, "ShareLink"], types: [.button, .staticText, .cell, .other])
+                        // The row button opens the location. The static text with the
+                        // same label does not, on iPadOS 17.
+                        let providerButton = files.buttons["DOC.sidebar.item.\(locationName)"].firstMatch
+                        let appButton = files.buttons["DOC.sidebar.item.ShareLink"].firstMatch
+                        if providerButton.exists, providerButton.isHittable {
+                            providerButton.tap()
+                        } else if appButton.exists, appButton.isHittable {
+                            appButton.tap()
+                        } else {
+                            _ = tapFirst(in: files, labels: [locationName, "ShareLink"], types: [.button, .cell])
+                        }
                     }
                 }
             } else {
@@ -245,7 +338,12 @@ final class FilesEndToEndTests: XCTestCase {
 
     private func openSidebar(_ files: XCUIApplication) {
         if sidebarIsOpen(files) { return }
-        let toggle = files.buttons["ToggleSideBar"].firstMatch
+        // iPadOS 17 identifies the control as ToggleSidebar ("Show Sidebar").
+        // iPadOS 26 uses ToggleSideBar. Either label is the same control.
+        var toggle = files.buttons["ToggleSidebar"].firstMatch
+        if !(toggle.exists && toggle.isHittable) {
+            toggle = files.buttons["ToggleSideBar"].firstMatch
+        }
         if toggle.exists && toggle.isHittable {
             let label = toggle.label.lowercased()
             if label.contains("hide") { return }
@@ -266,10 +364,18 @@ final class FilesEndToEndTests: XCTestCase {
     private func enableLocation(named name: String, in files: XCUIApplication) {
         if forcedProviderToggle, !inSidebarEditMode(files) { return }
         if !inSidebarEditMode(files) {
-            if !files.buttons["Edit Sidebar"].firstMatch.exists && !files.menuItems["Edit Sidebar"].firstMatch.exists {
-                tapSidebarMore(files)
+            // iPadOS 17: "Edit" is a button at the top of the sidebar.
+            // iPadOS 26+: "Edit Sidebar" is a menu item behind the sidebar More button.
+            let hasEditSidebar = files.buttons["Edit Sidebar"].firstMatch.exists
+                || files.menuItems["Edit Sidebar"].firstMatch.exists
+            if !hasEditSidebar, let edit = sidebarTopEditButton(files) {
+                edit.tap()
+            } else {
+                if !hasEditSidebar {
+                    tapSidebarMore(files)
+                }
+                _ = tapFirst(in: files, labels: ["Edit Sidebar", "Edit"], types: [.menuItem, .button])
             }
-            _ = tapFirst(in: files, labels: ["Edit Sidebar", "Edit"], types: [.menuItem, .button])
         }
         guard inSidebarEditMode(files) else { return }
         expandLocations(files)
@@ -281,7 +387,12 @@ final class FilesEndToEndTests: XCTestCase {
             finishEditing(files)
             return
         }
-        guard locationSwitch(named: "ShareLink", in: files) != nil else { return }
+        guard locationSwitch(named: "ShareLink", in: files) != nil else {
+            // Leave edit mode so the next pass can open the row. Staying on Done
+            // makes a sidebar tap reorder the row instead of opening it.
+            finishEditing(files)
+            return
+        }
         if !forcedProviderToggle {
             forcedProviderToggle = true
             attach(files.screenshot(), name: "sidebar-before-toggle")
@@ -295,10 +406,7 @@ final class FilesEndToEndTests: XCTestCase {
     }
 
     private func finishEditing(_ files: XCUIApplication) {
-        let done = files.buttons["Done"].firstMatch
-        if done.exists, done.isHittable, done.isEnabled, done.frame.minX < 100 {
-            done.tap()
-        }
+        sidebarDoneButton(files)?.tap()
     }
 
     private func turnOnButton(_ files: XCUIApplication) -> XCUIElement {
@@ -340,9 +448,13 @@ final class FilesEndToEndTests: XCTestCase {
     private func setSwitch(named name: String, on: Bool, in files: XCUIApplication) -> Bool {
         let wantOff = !on
         for _ in 0..<2 {
-            guard let toggle = locationSwitch(named: name, in: files), toggle.isHittable else { return false }
+            guard let toggle = locationSwitch(named: name, in: files), toggle.exists else { return false }
             if switchIsOff(toggle) == wantOff { return true }
-            toggle.tap()
+            if toggle.isHittable {
+                toggle.tap()
+            } else {
+                toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
             let deadline = Date().addingTimeInterval(1.5)
             while Date() < deadline {
                 if let current = locationSwitch(named: name, in: files), switchIsOff(current) == wantOff {
@@ -360,25 +472,72 @@ final class FilesEndToEndTests: XCTestCase {
         return false
     }
 
+    /// Done in the sidebar's top bar means Edit is still up. iPadOS 17 puts that
+    /// button on the trailing edge of a ~320pt sidebar (minX about 254). iPadOS 26
+    /// puts it on the leading edge. A Done further down or past the sidebar is
+    /// a document control and does not count.
+    private func sidebarDoneButton(_ files: XCUIApplication) -> XCUIElement? {
+        let matches = files.buttons.matching(NSPredicate(format: "label == 'Done'"))
+        let count = min(matches.count, 6)
+        var best: XCUIElement?
+        var bestX = CGFloat.greatestFiniteMagnitude
+        for index in 0..<count {
+            let match = matches.element(boundBy: index)
+            guard match.exists, match.isHittable, match.isEnabled else { continue }
+            guard match.frame.minY < 90, match.frame.maxX < 480 else { continue }
+            if match.frame.minX < bestX {
+                bestX = match.frame.minX
+                best = match
+            }
+        }
+        return best
+    }
+
     private func inSidebarEditMode(_ files: XCUIApplication) -> Bool {
-        let done = files.buttons["Done"].firstMatch
-        return done.exists && done.isHittable && done.frame.minX < 100
+        sidebarDoneButton(files) != nil
+    }
+
+    /// iPadOS 17 puts Edit in the sidebar's top bar (leading, near the top).
+    /// A document-area Edit would sit further right or lower.
+    private func sidebarTopEditButton(_ files: XCUIApplication) -> XCUIElement? {
+        let matches = files.buttons.matching(NSPredicate(format: "label == 'Edit'"))
+        let count = min(matches.count, 8)
+        var best: XCUIElement?
+        var bestY = CGFloat.greatestFiniteMagnitude
+        for index in 0..<count {
+            let match = matches.element(boundBy: index)
+            guard match.exists, match.isHittable else { continue }
+            guard match.frame.minX < 360, match.frame.minY < 180 else { continue }
+            if match.frame.minY < bestY {
+                bestY = match.frame.minY
+                best = match
+            }
+        }
+        return best
     }
 
     /// Edit Sidebar starts with Locations collapsed. XCUITest exposes the header as
     /// a static text; a tap on the label does not run "Expand content". The
     /// disclosure is the row's trailing edge. A second tap collapses it, so each
-    /// point is used once.
+    /// point is used once. iPadOS 17 may expose the same header as a button.
     private func expandLocations(_ files: XCUIApplication) {
         if locationsSectionIsExpanded(files) || files.switches.count > 0 { return }
         guard locationExpandTaps < 2 else { return }
         let before = files.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'DOC.sidebar.item'")).count
         let text = files.staticTexts["Locations"].firstMatch
-        guard text.exists, text.isHittable else { return }
+        let button = files.buttons["Locations"].firstMatch
+        let header: XCUIElement
+        if text.exists, text.isHittable {
+            header = text
+        } else if button.exists, button.isHittable {
+            header = button
+        } else {
+            return
+        }
         locationExpandTaps += 1
         // Trailing edge is the disclosure. The center is the fallback if that misses.
         let dx: CGFloat = locationExpandTaps == 1 ? 0.92 : 0.5
-        text.coordinate(withNormalizedOffset: CGVector(dx: dx, dy: 0.5)).tap()
+        header.coordinate(withNormalizedOffset: CGVector(dx: dx, dy: 0.5)).tap()
         let deadline = Date().addingTimeInterval(2)
         while Date() < deadline {
             let after = files.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'DOC.sidebar.item'")).count
@@ -438,6 +597,34 @@ final class FilesEndToEndTests: XCTestCase {
         let predicate = NSPredicate(format: "label == %@ OR label BEGINSWITH %@", name, name + ",")
         let named = files.switches.matching(predicate).firstMatch
         if named.exists { return named }
+        // iPadOS 17 draws the provider toggle as a checkbox. XCTest reports it as a
+        // switch labeled "1"/"0" on the same row as `DOC.sidebar.item.<name>`.
+        let rowButton = files.buttons["DOC.sidebar.item.\(name)"].firstMatch
+        if rowButton.exists {
+            for toggle in files.switches.allElementsBoundByIndex where toggle.exists {
+                if abs(toggle.frame.midY - rowButton.frame.midY) < 36 { return toggle }
+            }
+        }
+        guard let row = rowMatching(predicate, in: files) else { return nil }
+        let nested = row.switches.firstMatch
+        if nested.exists { return nested }
+        for toggle in files.switches.allElementsBoundByIndex where toggle.exists {
+            if abs(toggle.frame.midY - row.frame.midY) < 36 { return toggle }
+        }
+        return nil
+    }
+
+    private func rowMatching(_ predicate: NSPredicate, in files: XCUIApplication) -> XCUIElement? {
+        let types: [XCUIElement.ElementType] = [.cell, .button, .staticText, .other]
+        for type in types {
+            let matches = files.descendants(matching: type).matching(predicate)
+            let count = min(matches.count, 8)
+            for index in 0..<count {
+                let match = matches.element(boundBy: index)
+                guard match.exists, match.isHittable else { continue }
+                if match.frame.midX < 460 { return match }
+            }
+        }
         return nil
     }
 

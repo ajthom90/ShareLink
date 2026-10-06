@@ -8,14 +8,27 @@ struct RootView: View {
     @State private var selection: String?
     @State private var showingAdd = false
     @State private var showingSettings = false
+    /// Compact width only. Regular width forces `.all` so iPadOS 17 portrait
+    /// does not collapse the server list behind "Show Sidebar".
+    @State private var columnVisibility = NavigationSplitViewVisibility.automatic
     /// iPhone push. `List(selection:)` does not navigate on compact width, and a
     /// `NavigationLink` label collapses under the largest accessibility sizes.
     @State private var compactDetailID: String?
 
+    /// Regular width (iPad portrait and landscape) keeps the sidebar beside the
+    /// detail. Compact width keeps the system's stack and does not lock visibility.
+    private var columnVisibilityBinding: Binding<NavigationSplitViewVisibility> {
+        if horizontalSizeClass == .regular {
+            return .constant(.all)
+        }
+        return $columnVisibility
+    }
+
     var body: some View {
         @Bindable var model = model
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: columnVisibilityBinding) {
             sidebar
+                .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 340)
         } detail: {
             detail
         }
@@ -33,8 +46,22 @@ struct RootView: View {
             if let selection, !ids.contains(selection) {
                 self.selection = nil
             }
+            selectFirstServerIfNeeded()
         }
+        .onChange(of: horizontalSizeClass) { _, _ in
+            selectFirstServerIfNeeded()
+        }
+        .onAppear { selectFirstServerIfNeeded() }
         .task { await applyDemoPresentation() }
+    }
+
+    /// Regular width opens the first managed server, then the first user server,
+    /// so launch is never an empty "Select a server" placeholder. That placeholder
+    /// stays as the detail fallback when nothing can be selected.
+    private func selectFirstServerIfNeeded() {
+        guard horizontalSizeClass == .regular else { return }
+        if let selection, model.servers.contains(where: { $0.id == selection }) { return }
+        selection = managedServers.first?.id ?? userServers.first?.id
     }
 
     /// DEBUG-only screenshot hooks. `-SLDemoPresent` is addServer, settings, or acknowledgements.
